@@ -448,7 +448,7 @@ function processingStatus(r){const s=norm(processingVal(r,'status'));if(s==='rto
 function processingDate(r){const v=processingVal(r,'currentprocessdate');if(v===''||v==null)return null;if(typeof v==='number'&&v>20000&&v<60000)return new Date(Date.UTC(1899,11,30)+v*86400000);const d=new Date(v);return isNaN(d)?null:d}
 function processingAge(r){const d=processingDate(r);if(!d)return 0;const now=new Date();const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());const pd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return Math.max(0,Math.floor((t-pd)/86400000))}
 function processingExcluded(r){return /^(cok\/hub|kannur\/hub)$/i.test(String(processingVal(r,'currenthub')).trim())}
-function processingEligible(){return processingRows.filter(r=>{if(processingExcluded(r))return false;if(processingMap.state&&norm(processingVal(r,'state'))!=='kerala')return false;return true})}
+function processingEligible(){return processingRows.filter(r=>{if(processingExcluded(r))return false;const hub=String(processingVal(r,'currenthub')||'').trim();if(!hub)return false;return true})}
 function processingCluster(r){const k=String(processingVal(r,'currenthub')||'').trim().toUpperCase();return clusterMatrix[k]||'Unmapped'}
 function processingTatStatus(r){return processingAge(r)>2?'TAT Breached':'Within TAT'}
 function fillProcessing(){const d=processingEligible();fillSelect('processingHub',d.map(r=>processingVal(r,'currenthub')),false);fillSelect('processingCluster',d.map(r=>processingCluster(r)),false);fillSelect('processingAging',unique(d.map(r=>String(processingAge(r)))),false)}
@@ -482,9 +482,31 @@ function makePDDRaw(d){document.getElementById('pEmpty').style.display=d.length?
 function pddDownloadRows(){const d=filteredPDD().filter(r=>pddIsRecord(r)&&!pddIsAttempt(r));if(!d.length){alert('No pending unattempted PDD data available.');return null}return d.map(r=>Object.assign({Cluster:rowPDDCluster(r),PDD:'YES','PDD Attempt':'NO','PDD Failure':'YES'},r))}
 function downloadPDDCSV(){const data=pddDownloadRows();if(!data)return;const hs=['Cluster','PDD','PDD Attempt','PDD Failure',...pddHeaders];const lines=[hs.map(csv).join(',')].concat(data.map(r=>hs.map(h=>r[h]).map(csv).join(',')));save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'pdd_pending_unattempted.csv')}
 function downloadPDDExcel(){const data=pddDownloadRows();if(!data)return;const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pending PDD');XLSX.writeFile(wb,'pdd_pending_unattempted.xlsx')}
-function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('pddFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();const fd=new FormData();fd.append('file',f);const r=await fetch('/api/pdd/upload',{method:'POST',body:fd}),x=await r.json();if(!r.ok||!x.ok)throw new Error(x.error||'PDD upload failed');document.getElementById('pddStatus').innerHTML='Loaded <b>'+pddRows.length.toLocaleString()+'</b> PDD rows. Location=<b>'+(pddMap.location||'not found')+'</b>, Status=<b>'+(pddMap.status||'not found')+'</b>. <b>Synced separately for all users.</b>'}catch(err){alert('Could not read/upload PDD file: '+err.message)}};rd.readAsArrayBuffer(f)}
-async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
-function showDashboard(which){const main=document.querySelector('main.wrap'),pdd=document.getElementById('pddSection'),pp=document.getElementById('processingSection');for(let i=1;i<main.children.length;i++)main.children[i].style.display='none';pdd.style.display=which==='pdd'?'block':'none';pp.style.display=which==='processing'?'block':'none';if(which==='aging')for(let i=2;i<main.children.length;i++)main.children[i].style.display='';if(which==='processing'){document.getElementById('processingTat').value='';renderProcessing()}if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';renderProcessing()}}
+function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('pddFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;fillPDD();renderPDD();const fd=new FormData();fd.append('file',f);const r=await fetch('/api/pdd/upload',{method:'POST',body:fd}),x=await r.json();if(!r.ok||!x.ok)throw new Error(x.error||'PDD upload failed');document.getElementById('pddStatus').innerHTML='Loaded <b>'+pddRows.length.toLocaleString()+'</b> PDD rows. Location=<b>'+(pddMap.location||'not found')+'</b>, Status=<b>'+(pddMap.status||'not found')+'</b>. <b>Synced separately for all users.</b>'}catch(err){alert('Could not read/upload PDD file: '+err.message)}};rd.readAsArrayBuffer(f)}
+async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
+function showDashboard(which){
+  const main=document.querySelector('main.wrap');
+  const pdd=document.getElementById('pddSection');
+  const pp=document.getElementById('processingSection');
+  const tabs=main.children[0];
+  const agingParts=[...main.children].slice(3);
+  // Keep the tab bar visible and switch only the dashboard content.
+  pdd.style.display=which==='pdd'?'block':'none';
+  pp.style.display=(which==='processing'||which==='tat')?'block':'none';
+  agingParts.forEach(el=>el.style.display=which==='aging'?'':'none');
+  [...tabs.querySelectorAll('button')].forEach(b=>{
+    const active=(b.textContent||'').toLowerCase().includes(
+      which==='aging'?'aging':which==='pdd'?'pdd':'processing'
+    ) || (which==='tat' && (b.textContent||'').toLowerCase().includes('tat'));
+    b.style.background=active?'#174ea6':'#fff';
+    b.style.color=active?'#fff':(which==='tat'?'#b42318':'#174ea6');
+    b.style.borderColor=active?'#174ea6':(which==='tat'?'#fecaca':'#cbd5e1');
+  });
+  if(which==='processing'){document.getElementById('processingTat').value='';fillProcessing();renderProcessing();}
+  if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';fillProcessing();renderProcessing();}
+  if(which==='pdd'){fillPDD();renderPDD();}
+  if(which==='aging'){populateFilters();render();}
+}
 
 // Automatically load the centrally shared dataset for every visitor.
 // This runs after all dashboard functions are defined, so the same latest
