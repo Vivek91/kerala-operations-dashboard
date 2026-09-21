@@ -205,7 +205,7 @@ async function loadMatrixFile(e){
       const cc=hs.find(h=>['cluster name','cluster','cluster name '].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
       if(!hc||!cc) return alert('Matrix must contain HUB NAME / Location and CLUSTER NAME columns.');
       const m={}; mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
-      const r=await fetch('/api/cluster-matrix/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mapping:m})});
+      const fd=new FormData(); fd.append('file',f); const r=await fetch('/api/cluster-matrix/upload',{method:'POST',body:fd});
       const x=await r.json(); if(!r.ok||!x.ok) throw new Error(x.error||'Matrix update failed');
       clusterMatrix=m; populateFilters(); render();
       document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${x.locations.toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
