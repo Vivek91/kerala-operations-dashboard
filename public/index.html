@@ -205,11 +205,11 @@ async function loadMatrixFile(e){
       const cc=hs.find(h=>['cluster name','cluster','cluster name '].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
       if(!hc||!cc) return alert('Matrix must contain HUB NAME / Location and CLUSTER NAME columns.');
       const m={}; mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
-      const ab=await f.arrayBuffer(); let binary=''; const bytes=new Uint8Array(ab); for(let i=0;i<bytes.length;i+=8192) binary+=String.fromCharCode(...bytes.subarray(i,i+8192)); const encoded=btoa(binary);
-      const r=await fetch('/api/cluster-matrix/upload-json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:f.name,contentType:f.type||'application/octet-stream',data:encoded})});
+      const r=await fetch('/api/cluster-matrix/mapping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mapping:m})});
       const x=await r.json(); if(!r.ok||!x.ok) throw new Error(x.error||'Matrix update failed');
       clusterMatrix=m; populateFilters(); render();
       document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${Object.keys(m).length.toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
+      e.target.value='';
     }catch(err){alert('Could not update cluster matrix: '+err.message)}
   };
   reader.readAsArrayBuffer(f);
@@ -241,6 +241,12 @@ function loadFile(e){
 
 async function loadClusterMatrix(){
   try{
+    const mr=await fetch('/api/cluster-matrix/mapping',{cache:'no-store'});
+    if(mr.ok){
+      const j=await mr.json();
+      clusterMatrix=j.mapping||{};
+      return;
+    }
     const r=await fetch('/api/cluster-matrix/latest',{cache:'no-store'});
     if(!r.ok){clusterMatrix={};return;}
     const blob=await r.blob();
