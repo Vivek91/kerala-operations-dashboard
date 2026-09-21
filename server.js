@@ -54,6 +54,7 @@ app.post("/api/cluster-matrix/mapping",express.json({limit:"10mb"}),(req,res)=>{
 });
 app.get("/api/cluster-matrix/latest",(req,res)=>send("cluster-matrix",res,"X-Cluster-Matrix-Filename"));
 
+app.get("/v2",(req,res)=>{res.setHeader("Cache-Control","no-store, no-cache, must-revalidate");res.sendFile(path.join(__dirname,"public","index.html"));});
 app.use(express.static(path.join(__dirname,"public"),{setHeaders:(res)=>res.setHeader("Cache-Control","no-store")}));
 app.use((req,res)=>{res.setHeader("Cache-Control","no-store");res.sendFile(path.join(__dirname,"public","index.html"));});
 
