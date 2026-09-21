@@ -241,7 +241,18 @@ function loadFile(e){
 async function loadClusterMatrix(){
   try{
     const r=await fetch('/api/cluster-matrix/latest',{cache:'no-store'});
-    if(r.ok) clusterMatrix=await r.json();
+    if(!r.ok){clusterMatrix={};return;}
+    const blob=await r.blob();
+    const wb=XLSX.read(await blob.arrayBuffer(),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const mrows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    const hs=mrows.length?Object.keys(mrows[0]):[];
+    const hc=hs.find(h=>['hub name','hub','location','location name'].includes(norm(h)))||hs.find(h=>norm(h).includes('hub'));
+    const cc=hs.find(h=>['cluster name','cluster'].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
+    if(!hc||!cc){clusterMatrix={};return;}
+    const m={};
+    mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
+    clusterMatrix=m;
   }catch(e){ clusterMatrix={}; }
 }
 async function loadLatestShared(){
@@ -418,7 +429,7 @@ loadLatestProcessing();
 // Automatically load the centrally shared dataset for every visitor.
 // This runs after all dashboard functions are defined, so the same latest
 // uploaded file is shown on every device/browser.
-Promise.all([loadClusterMatrix(),loadLatestShared()]).catch(()=>loadLatestShared());
+loadClusterMatrix().then(async()=>{await loadLatestShared();await loadLatestPDD();await loadLatestProcessing();}).catch(async()=>{await loadLatestShared();});
 </script>
 
 </body>
