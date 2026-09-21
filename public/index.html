@@ -422,10 +422,6 @@ function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getEleme
 async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
 function showDashboard(which){const main=document.querySelector('main.wrap'),pdd=document.getElementById('pddSection'),pp=document.getElementById('processingSection');for(let i=1;i<main.children.length;i++)main.children[i].style.display='none';pdd.style.display=which==='pdd'?'block':'none';pp.style.display=which==='processing'?'block':'none';if(which==='aging')for(let i=2;i<main.children.length;i++)main.children[i].style.display='';if(which==='processing'){document.getElementById('processingTat').value='';renderProcessing()}if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';renderProcessing()}}
 
-// Automatically load the centrally shared datasets for every visitor.
-loadLatestPDD();
-loadLatestProcessing();
-
 // Automatically load the centrally shared dataset for every visitor.
 // This runs after all dashboard functions are defined, so the same latest
 // uploaded file is shown on every device/browser.
