@@ -382,10 +382,10 @@ const processingAliases={state:['state','region','st','state name'],status:['sta
 function processingDetect(hs){const o={};for(const k of Object.keys(processingAliases)){let h=hs.find(x=>processingAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>processingAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null}return o}
 function processingVal(r,k){return processingMap[k]?r[processingMap[k]]:''}
 function processingStatus(r){const s=norm(processingVal(r,'status'));if(s==='rto')return 'RTO';if(s==='shipped')return 'Misroute';return String(processingVal(r,'status')||'Other')}
-function processingDate(r){const v=processingVal(r,'currentprocessdate');if(!v)return null;const d=new Date(v);return isNaN(d)?null:d}
+function processingDate(r){const v=processingVal(r,'currentprocessdate');if(v===''||v==null)return null;if(typeof v==='number'&&v>20000&&v<60000)return new Date(Date.UTC(1899,11,30)+v*86400000);const d=new Date(v);return isNaN(d)?null:d}
 function processingAge(r){const d=processingDate(r);if(!d)return 0;const now=new Date();const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());const pd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return Math.max(0,Math.floor((t-pd)/86400000))}
 function processingExcluded(r){return /^(cok\/hub|kannur\/hub)$/i.test(String(processingVal(r,'currenthub')).trim())}
-function processingEligible(){return processingRows.filter(r=>!processingExcluded(r))}
+function processingEligible(){return processingRows.filter(r=>{if(processingExcluded(r))return false;if(processingMap.state&&norm(processingVal(r,'state'))!=='kerala')return false;return true})}
 function processingCluster(r){const k=String(processingVal(r,'currenthub')||'').trim().toUpperCase();return clusterMatrix[k]||'Unmapped'}
 function processingTatStatus(r){return processingAge(r)>2?'TAT Breached':'Within TAT'}
 function fillProcessing(){const d=processingEligible();fillSelect('processingHub',d.map(r=>processingVal(r,'currenthub')),false);fillSelect('processingCluster',d.map(r=>processingCluster(r)),false);fillSelect('processingAging',unique(d.map(r=>String(processingAge(r)))),false)}
@@ -405,8 +405,9 @@ const pddAliases={state:['state','region','st','state name'],location:['location
 function pddDetect(hs){const o={};for(const k of Object.keys(pddAliases)){let h=hs.find(x=>pddAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>pddAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null;}return o}
 function pddVal(r,k){return pddMap[k]?r[pddMap[k]]:''}
 function pddIsRecord(r){return norm(pddVal(r,'notificationstatus'))==='pending'&&Number(pddVal(r,'totalattemptcount'))===0}
-function pddProcessDate(r){const v=pddVal(r,'current_processtime');if(!v)return '';const d=new Date(v);if(!isNaN(d))return d.toISOString().slice(0,10);const m=String(v).match(/(20\d{2})[-\/]?(\d{2})[-\/]?(\d{2})/);return m?m.slice(1).join('-'):String(v).slice(0,10)}
-function pddIsAttempt(r){if(!pddIsRecord(r))return false;const proc=norm(pddVal(r,'current_process'));if(/out for delivery/.test(proc))return true;const today=new Date().toISOString().slice(0,10);return pddProcessDate(r)===today&&!/bagout|baginscan|bagin/.test(proc)}
+function localDateString(d){const x=new Date(d);if(isNaN(x))return '';return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function pddProcessDate(r){const v=pddVal(r,'current_processtime');if(!v)return '';if(typeof v==='number'&&v>20000&&v<60000){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return localDateString(d)}const d=new Date(v);if(!isNaN(d))return localDateString(d);const m=String(v).match(/(20\d{2})[-\/]?(\d{2})[-\/]?(\d{2})/);return m?m.slice(1).join('-'):String(v).slice(0,10)}
+function pddIsAttempt(r){if(!pddIsRecord(r))return false;const proc=norm(pddVal(r,'current_process'));if(/out for delivery/.test(proc))return true;const today=localDateString(new Date());return pddProcessDate(r)===today&&!/bagout|baginscan|bagin/.test(proc)}
 function pddIsFailure(r){return pddIsRecord(r)&&!pddIsAttempt(r)}
 function pddMetricRows(d){return d.filter(pddIsRecord)}
 function fillPDD(){fillSelect('pddState',pddRows.map(r=>pddVal(r,'state')),false);fillSelect('pddLocation',pddRows.map(r=>pddVal(r,'location')),false);fillSelect('pddPincode',pddRows.map(r=>pddVal(r,'pincode')),false);fillSelect('pddCluster',pddRows.map(r=>rowPDDCluster(r)),false);fillSelect('pddStatusFilter',pddRows.map(r=>pddVal(r,'status')),false)}
