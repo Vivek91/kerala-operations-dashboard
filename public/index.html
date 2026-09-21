@@ -41,7 +41,7 @@
 
 <section id="processingSection" style="display:none">
   <div class="upload">
-    <input id="processingFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadProcessingFile(event)">
+    <input id="processingFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadProcessingFile(event)">
     <label class="upload-label" for="processingFile">Choose Processing Pending File</label>
     <div><b id="processingFileName">No Processing Pending file uploaded</b><div class="status" id="processingStatus">Status RTO = RTO • Status Shipped = Misroute • Aging = Today − Current Process Date. COK/HUB and KANNUR/HUB are excluded.</div></div>
   </div>
@@ -75,7 +75,7 @@
 
 <section id="pddSection" style="display:none">
   <div class="upload">
-    <input id="pddFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadPDDFile(event)">
+    <input id="pddFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadPDDFile(event)">
     <label class="upload-label" for="pddFile">Choose PDD Excel / CSV</label>
     <div><b id="pddFileName">No PDD file uploaded</b><div class="status" id="pddStatus">Upload the separate PDD raw file. Location will use the same Cluster Matrix.</div></div>
   </div>
@@ -110,8 +110,8 @@
   <section class="panel"><h3>Filtered PDD Raw Data <span id="pRowCount" class="sub"></span></h3><div class="table-wrap"><table id="pRawTable"></table><div id="pEmpty" class="empty">Upload PDD data to start.</div></div></section>
 </section>
   <div class="upload">
-    <input id="file" type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event)">
-    <input id="matrixFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadMatrixFile(event)" style="display:none">
+    <input id="file" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadFile(event)">
+    <input id="matrixFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadMatrixFile(event)" style="display:none">
     <label class="upload-label" for="file">Choose Excel / CSV</label>
     <div><b id="fileName">No file uploaded</b><div class="status" id="status">Upload your raw file. The dashboard automatically detects common Location, Pincode and Aging fields.</div></div>
   </div>
@@ -125,7 +125,7 @@
       <div class="filter"><label>AGING BUCKET</label><select id="aging" onchange="render()"><option value="">All</option><option>0-2 Days</option><option>3-5 Days</option><option>6-7 Days</option><option>8-15 Days</option><option>16-30 Days</option><option>31+ Days</option></select></div>
       <div class="filter"><label>SEARCH</label><input id="search" placeholder="AWB / customer / pincode..." oninput="render()"></div>
     </div>
-    <div class="note">Filters apply to the dashboard, summary tables and downloads.</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="pdd-btn" type="button" onclick="clearAgingFilters()">Clear Filters</button></div><div class="note">Filters apply to the dashboard, summary tables and downloads.</div>
   </section>
 
   <section class="cards">
@@ -159,7 +159,7 @@ let rows=[], headers=[], map={}, locChart, ageChart, clusterMatrix={};
 
 const aliases={
  state:['state','region','st','state name'],
- location:['location','hub','hubname','hub name','svc','rsc','location name','city'],
+ location:['location','hub','hubname','hub name','hub code','hubcode','svc','rsc','location name','city'],
  pincode:['shippincode','ship pincode','ship_pin_code','ship pin code','pincode','pin code','pin','destination pincode','destination_pincode','postcode'],
  aging:['aging','ageing','age','aging days','ageing days','aging_day','aging_days','days','pending days'],
  awb:['awb','awb no','awb number','shipment','shipment id','waybill']
@@ -202,14 +202,14 @@ async function loadMatrixFile(e){
       const wb=XLSX.read(ev.target.result,{type:'array'}), ws=wb.Sheets[wb.SheetNames[0]];
       const mrows=XLSX.utils.sheet_to_json(ws,{defval:''});
       const hs=mrows.length?Object.keys(mrows[0]):[];
-      const hc=hs.find(h=>['hub name','hub','location','location name'].includes(norm(h)))||hs.find(h=>norm(h).includes('hub'));
+      const hc=hs.find(h=>['hub name','hub','hubname','hub code','hubcode','location','location name','svc','rsc'].includes(norm(h)))||hs.find(h=>/hub|location|svc|rsc/.test(norm(h)));
       const cc=hs.find(h=>['cluster name','cluster','cluster name '].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
       if(!hc||!cc) return alert('Matrix must contain HUB NAME / Location and CLUSTER NAME columns.');
       const m={}; mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
       const fd=new FormData(); fd.append('file',f);
       const r=await fetch('/api/cluster-matrix/upload',{method:'POST',body:fd});
       const x=await r.json(); if(!r.ok||!x.ok) throw new Error(x.error||'Matrix update failed');
-      clusterMatrix=m; populateFilters(); render();
+      clusterMatrix=x.mapping||m; clusterMatrixUpdatedAt=x.updatedAt||new Date().toISOString(); populateFilters(); render();
       document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${Number(x.locations||Object.keys(m).length).toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
       e.target.value='';
     }catch(err){alert('Could not update cluster matrix: '+err.message)}
@@ -301,6 +301,12 @@ function populateFilters(){
   fillSelect('location',rows.map(r=>val(r,'location')),false);
   fillSelect('pincode',rows.map(r=>val(r,'pincode')),false);
   fillSelect('cluster',rows.map(r=>rowCluster(r)),false);
+}
+function clearAgingFilters(){
+  ['state','location','pincode','cluster','aging','search'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  render();
 }
 function filtered(){
   const s=document.getElementById('state').value,l=document.getElementById('location').value,p=document.getElementById('pincode').value,c=document.getElementById('cluster').value,a=document.getElementById('aging').value,q=norm(document.getElementById('search').value);
