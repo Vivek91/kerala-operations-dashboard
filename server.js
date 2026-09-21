@@ -4,6 +4,7 @@ const fs=require("fs");
 const path=require("path");
 
 const app=express();
+app.use(express.json({limit:"150mb"}));
 const PORT=process.env.PORT||8080;
 const DATA_DIR=process.env.DATA_DIR||path.join(__dirname,"data");
 fs.mkdirSync(DATA_DIR,{recursive:true});
@@ -46,14 +47,14 @@ app.post("/api/processing/upload",upload.single("file"),(req,res)=>{
 });
 app.get("/api/processing/latest",(req,res)=>send("processing-pending",res,"X-Processing-Filename"));
 
-app.post("/api/cluster-matrix/upload-raw",express.raw({type:"*/*",limit:"100mb"}),(req,res)=>{\n  if(!req.body || !Buffer.isBuffer(req.body) || !req.body.length)return res.status(400).json({error:"file_required"});\n  const filename=String(req.headers["x-file-name"]||"cluster-matrix.xlsx");\n  save("cluster-matrix",req.body,req.headers["content-type"]||"application/octet-stream",filename);\n  res.json({ok:true,filename,size:req.body.length,updatedAt:new Date().toISOString()});\n});\n\napp.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
+app.post("/api/cluster-matrix/upload-json",(req,res)=>{\n  if(!req.body || !req.body.data)return res.status(400).json({error:"file_required"});\n  try{\n    const buf=Buffer.from(req.body.data,"base64");\n    if(!buf.length)return res.status(400).json({error:"file_required"});\n    const filename=String(req.body.filename||"cluster-matrix.xlsx");\n    save("cluster-matrix",buf,req.body.contentType||"application/octet-stream",filename);\n    res.json({ok:true,filename,size:buf.length,updatedAt:new Date().toISOString()});\n  }catch(e){res.status(400).json({error:"invalid_file"});}\n});\n\napp.post("/api/cluster-matrix/upload-raw",express.raw({type:"*/*",limit:"100mb"}),(req,res)=>{\n  if(!req.body || !Buffer.isBuffer(req.body) || !req.body.length)return res.status(400).json({error:"file_required"});\n  const filename=String(req.headers["x-file-name"]||"cluster-matrix.xlsx");\n  save("cluster-matrix",req.body,req.headers["content-type"]||"application/octet-stream",filename);\n  res.json({ok:true,filename,size:req.body.length,updatedAt:new Date().toISOString()});\n});\n\napp.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
   if(!req.file)return res.status(400).json({error:"file_required"});
   save("cluster-matrix",req.file.buffer,req.file.mimetype,req.file.originalname);
   res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
 });
 app.get("/api/cluster-matrix/latest",(req,res)=>send("cluster-matrix",res,"X-Cluster-Matrix-Filename"));
 
-app.use(express.static(path.join(__dirname,"public")));
-app.use((req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
+app.use(express.static(path.join(__dirname,"public"),{setHeaders:(res)=>res.setHeader("Cache-Control","no-store")}));
+app.use((req,res)=>{res.setHeader("Cache-Control","no-store");res.sendFile(path.join(__dirname,"public","index.html"));});
 
 app.listen(PORT,"0.0.0.0",()=>console.log("Kerala Operations Dashboard listening on "+PORT));
