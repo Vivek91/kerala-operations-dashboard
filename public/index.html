@@ -30,6 +30,7 @@
   <div class="actions">
     <button class="btn" onclick="downloadCSV()">Download CSV</button>
     <button class="btn" onclick="downloadExcel()">Download Excel</button>
+    <button class="btn" onclick="window.open('/cluster-matrix-manager','_blank')">Cluster Mapping</button>
     <button class="btn primary" onclick="document.getElementById('file').click()">Upload Raw File</button>
     
   </div>
@@ -240,28 +241,39 @@ function loadFile(e){
   reader.readAsArrayBuffer(f);
 }
 
-async function loadClusterMatrix(){
+let clusterMatrixUpdatedAt='';
+async function loadClusterMatrix(forceRender=false){
   try{
     const mr=await fetch('/api/cluster-matrix/mapping',{cache:'no-store'});
-    if(mr.ok){
-      const j=await mr.json();
-      clusterMatrix=j.mapping||{};
-      return;
+    if(!mr.ok)return false;
+    const j=await mr.json();
+    const next=j.mapping||{};
+    const changed=forceRender || j.updatedAt!==clusterMatrixUpdatedAt;
+    clusterMatrix=next;
+    clusterMatrixUpdatedAt=j.updatedAt||new Date().toISOString();
+    if(changed){
+      populateFilters();
+      if(typeof fillPDD==='function')fillPDD();
+      if(typeof fillProcessing==='function')fillProcessing();
+      if(rows.length)render();
+      if(pddRows.length)renderPDD();
+      if(processingRows.length)renderProcessing();
     }
-    const r=await fetch('/api/cluster-matrix/latest',{cache:'no-store'});
-    if(!r.ok){clusterMatrix={};return;}
-    const blob=await r.blob();
-    const wb=XLSX.read(await blob.arrayBuffer(),{type:'array'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const mrows=XLSX.utils.sheet_to_json(ws,{defval:''});
-    const hs=mrows.length?Object.keys(mrows[0]):[];
-    const hc=hs.find(h=>['hub name','hub','location','location name'].includes(norm(h)))||hs.find(h=>norm(h).includes('hub'));
-    const cc=hs.find(h=>['cluster name','cluster'].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
-    if(!hc||!cc){clusterMatrix={};return;}
-    const m={};
-    mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
-    clusterMatrix=m;
-  }catch(e){ clusterMatrix={}; }
+    return changed;
+  }catch(e){return false}
+}
+async function syncClusterMapping(){
+  try{
+    const changed=await loadClusterMatrix(false);
+    if(changed){
+      const s=document.getElementById('status');
+      if(s && rows.length)s.innerHTML='Cluster mapping refreshed • <b>'+Object.keys(clusterMatrix).length.toLocaleString()+'</b> locations mapped. <b>Applied to all dashboards.</b>';
+      const ps=document.getElementById('pddStatus');
+      if(ps && pddRows.length)ps.innerHTML='Cluster mapping refreshed • <b>Applied to PDD.</b>';
+      const pp=document.getElementById('processingStatus');
+      if(pp && processingRows.length)pp.innerHTML='Cluster mapping refreshed • <b>Applied to Processing Pending.</b>';
+    }
+  }catch(e){}
 }
 async function loadLatestShared(){
   try{
@@ -434,7 +446,8 @@ function showDashboard(which){const main=document.querySelector('main.wrap'),pdd
 // Automatically load the centrally shared dataset for every visitor.
 // This runs after all dashboard functions are defined, so the same latest
 // uploaded file is shown on every device/browser.
-loadClusterMatrix().then(async()=>{await loadLatestShared();await loadLatestPDD();await loadLatestProcessing();}).catch(async()=>{await loadLatestShared();});
+loadClusterMatrix(true).then(async()=>{await loadLatestShared();await loadLatestPDD();await loadLatestProcessing();}).catch(async()=>{await loadLatestShared();});
+setInterval(syncClusterMapping,30000);
 </script>
 
 </body>
