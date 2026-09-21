@@ -93,7 +93,7 @@ app.post("/api/cluster-matrix/upload-raw",express.raw({type:"*/*",limit:"100mb"}
   res.json({ok:true,filename,size:req.body.length,updatedAt:new Date().toISOString()});
 });
 
-app.post("/api/cluster-matrix/import",upload.single("file"),(req,res)=>{
+app.post("/api/cluster-matrix/import",upload.any(),(req,res)=>{
   if(!req.file)return res.status(400).json({error:"file_required"});
   try{
     const wb=XLSX.read(req.file.buffer,{type:"buffer"});
@@ -118,7 +118,7 @@ app.post("/api/cluster-matrix/import",upload.single("file"),(req,res)=>{
 });
 app.post("/api/cluster-matrix/upload",upload.any(),(req,res)=>{
   try{
-    const file=(req.files&&req.files[0])||null;
+    const file=(req.files&&req.files.find(x=>x && x.buffer))||null;
     if(!file)return res.status(400).json({error:"No file received. Please select an Excel or CSV matrix file."});
     const wb=XLSX.read(file.buffer,{type:"buffer"});
     const ws=wb.Sheets[wb.SheetNames[0]];
