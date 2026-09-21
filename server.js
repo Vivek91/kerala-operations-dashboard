@@ -1,0 +1,59 @@
+const express=require("express");
+const multer=require("multer");
+const fs=require("fs");
+const path=require("path");
+
+const app=express();
+const PORT=process.env.PORT||8080;
+const DATA_DIR=process.env.DATA_DIR||path.join(__dirname,"data");
+fs.mkdirSync(DATA_DIR,{recursive:true});
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:100*1024*1024}});
+
+function keyPath(key){return path.join(DATA_DIR,key.replace(/[^a-zA-Z0-9._-]/g,"_"));}
+function save(name,buf,contentType,filename){
+  fs.writeFileSync(keyPath(name),buf);
+  fs.writeFileSync(keyPath(name+".meta.json"),JSON.stringify({contentType,filename,updatedAt:new Date().toISOString()}));
+}
+function send(name,res,header){
+  const p=keyPath(name);
+  if(!fs.existsSync(p))return res.status(404).json({error:"not_found"});
+  let meta={};
+  try{meta=JSON.parse(fs.readFileSync(keyPath(name+".meta.json"),"utf8"))}catch{}
+  res.setHeader("Content-Type",meta.contentType||"application/octet-stream");
+  if(meta.filename)res.setHeader(header,meta.filename);
+  res.send(fs.readFileSync(p));
+}
+
+app.get("/health",(req,res)=>res.json({ok:true}));
+app.post("/api/dashboard/upload",upload.single("file"),(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"file_required"});
+  save("dashboard",req.file.buffer,req.file.mimetype,req.file.originalname);
+  res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
+});
+app.get("/api/dashboard/latest",(req,res)=>send("dashboard",res,"X-Dashboard-Filename"));
+
+app.post("/api/pdd/upload",upload.single("file"),(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"file_required"});
+  save("pdd-dashboard",req.file.buffer,req.file.mimetype,req.file.originalname);
+  res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
+});
+app.get("/api/pdd/latest",(req,res)=>send("pdd-dashboard",res,"X-PDD-Filename"));
+
+app.post("/api/processing/upload",upload.single("file"),(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"file_required"});
+  save("processing-pending",req.file.buffer,req.file.mimetype,req.file.originalname);
+  res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
+});
+app.get("/api/processing/latest",(req,res)=>send("processing-pending",res,"X-Processing-Filename"));
+
+app.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
+  if(!req.file)return res.status(400).json({error:"file_required"});
+  save("cluster-matrix",req.file.buffer,req.file.mimetype,req.file.originalname);
+  res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
+});
+app.get("/api/cluster-matrix/latest",(req,res)=>send("cluster-matrix",res,"X-Cluster-Matrix-Filename"));
+
+app.use(express.static(path.join(__dirname,"public")));
+app.use((req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
+
+app.listen(PORT,"0.0.0.0",()=>console.log("Kerala Operations Dashboard listening on "+PORT));
