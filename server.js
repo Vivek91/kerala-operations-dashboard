@@ -103,10 +103,30 @@ app.post("/api/cluster-matrix/import",upload.single("file"),(req,res)=>{
     res.json({ok:true,locations:Object.keys(mapping).length,filename:req.file.originalname,updatedAt:new Date().toISOString()});
   }catch(e){res.status(400).json({error:"Could not read the Excel file: "+e.message});}
 });
-app.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
-  if(!req.file)return res.status(400).json({error:"file_required"});
-  save("cluster-matrix",req.file.buffer,req.file.mimetype,req.file.originalname);
-  res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
+app.post("/api/cluster-matrix/upload",upload.any(),(req,res)=>{
+  try{
+    const file=(req.files&&req.files[0])||null;
+    if(!file)return res.status(400).json({error:"No file received. Please select an Excel or CSV matrix file."});
+    const wb=XLSX.read(file.buffer,{type:"buffer"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{defval:""});
+    if(!data.length)return res.status(400).json({error:"empty_file"});
+    const hs=Object.keys(data[0]);
+    const normH=x=>String(x??"").trim().toLowerCase().replace(/[_\\-]+/g," ").replace(/\\s+/g," ");
+    const hc=hs.find(h=>["hub name","hub","location","location name"].includes(normH(h)))||hs.find(h=>normH(h).includes("hub"));
+    const cc=hs.find(h=>["cluster name","cluster"].includes(normH(h)))||hs.find(h=>normH(h).includes("cluster"));
+    if(!hc||!cc)return res.status(400).json({error:"Need HUB NAME and CLUSTER NAME columns"});
+    const mapping={};
+    data.forEach(row=>{
+      const hub=String(row[hc]??"").trim().toUpperCase();
+      const cluster=String(row[cc]??"").trim();
+      if(hub&&cluster)mapping[hub]=cluster;
+    });
+    if(!Object.keys(mapping).length)return res.status(400).json({error:"No location/cluster mappings found"});
+    save("cluster-matrix",file.buffer,file.mimetype,file.originalname);
+    fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping,updatedAt:new Date().toISOString()}));
+    res.json({ok:true,filename:file.originalname,size:file.size,locations:Object.keys(mapping).length,updatedAt:new Date().toISOString()});
+  }catch(e){res.status(400).json({error:"Could not read the Cluster Matrix file: "+e.message});}
 });
 app.get("/api/cluster-matrix/latest",(req,res)=>send("cluster-matrix",res,"X-Cluster-Matrix-Filename"));
 
