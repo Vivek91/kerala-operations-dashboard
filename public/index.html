@@ -228,7 +228,10 @@ function loadFile(e){
       headers=rows.length?Object.keys(rows[0]):[];
       map=detect(headers);
       const sourceRowCount=rows.length;
-      if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+      if(map.state){
+        const stateValues=unique(rows.map(r=>norm(r[map.state])));
+        if(stateValues.includes('kerala')) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+      }
       document.getElementById('status').innerHTML=`Loaded <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. Syncing to team…`;
       populateFilters(); render();
       const fd=new FormData(); fd.append('file',f);
@@ -289,7 +292,10 @@ async function loadLatestShared(){
     headers=rows.length?Object.keys(rows[0]):[];
     map=detect(headers);
     const sourceRowCount=rows.length;
-    if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+    if(map.state){
+      const stateValues=unique(rows.map(r=>norm(r[map.state])));
+      if(stateValues.includes('kerala')) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+    }
     populateFilters(); render();
     document.getElementById('status').innerHTML=`Loaded shared data • <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. <b>Synced for all users.</b>`;
   }catch(err){
