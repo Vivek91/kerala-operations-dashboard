@@ -46,7 +46,7 @@ app.post("/api/processing/upload",upload.single("file"),(req,res)=>{
 });
 app.get("/api/processing/latest",(req,res)=>send("processing-pending",res,"X-Processing-Filename"));
 
-app.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
+app.post("/api/cluster-matrix/upload-raw",express.raw({type:"*/*",limit:"100mb"}),(req,res)=>{\n  if(!req.body || !Buffer.isBuffer(req.body) || !req.body.length)return res.status(400).json({error:"file_required"});\n  const filename=String(req.headers["x-file-name"]||"cluster-matrix.xlsx");\n  save("cluster-matrix",req.body,req.headers["content-type"]||"application/octet-stream",filename);\n  res.json({ok:true,filename,size:req.body.length,updatedAt:new Date().toISOString()});\n});\n\napp.post("/api/cluster-matrix/upload",upload.single("file"),(req,res)=>{
   if(!req.file)return res.status(400).json({error:"file_required"});
   save("cluster-matrix",req.file.buffer,req.file.mimetype,req.file.originalname);
   res.json({ok:true,filename:req.file.originalname,size:req.file.size,updatedAt:new Date().toISOString()});
