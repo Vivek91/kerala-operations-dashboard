@@ -30,7 +30,7 @@
   <div class="actions">
     <button class="btn" onclick="downloadCSV()">Download CSV</button>
     <button class="btn" onclick="downloadExcel()">Download Excel</button>
-    <button class="btn" onclick="window.open('/cluster-matrix-manager','_blank')">Cluster Mapping</button>
+    <button class="btn" onclick="window.open('/matrix-manager','_blank')">Cluster Mapping</button>
     <button class="btn primary" onclick="document.getElementById('file').click()">Upload Raw File</button>
     
   </div>
@@ -488,24 +488,42 @@ function showDashboard(which){
   const main=document.querySelector('main.wrap');
   const pdd=document.getElementById('pddSection');
   const pp=document.getElementById('processingSection');
-  const tabs=main.children[0];
-  const agingParts=[...main.children].slice(3);
-  // Keep the tab bar visible and switch only the dashboard content.
+  const tabBar=main.children[0];
+  const agingNodes=[...main.children].filter(el=>el!==tabBar && el!==pdd && el!==pp);
+
   pdd.style.display=which==='pdd'?'block':'none';
   pp.style.display=(which==='processing'||which==='tat')?'block':'none';
-  agingParts.forEach(el=>el.style.display=which==='aging'?'':'none');
-  [...tabs.querySelectorAll('button')].forEach(b=>{
-    const active=(b.textContent||'').toLowerCase().includes(
-      which==='aging'?'aging':which==='pdd'?'pdd':'processing'
-    ) || (which==='tat' && (b.textContent||'').toLowerCase().includes('tat'));
+  agingNodes.forEach(el=>el.style.display=which==='aging'?'':'none');
+
+  [...tabBar.querySelectorAll('button')].forEach(b=>{
+    const label=(b.textContent||'').toLowerCase();
+    const active=which==='aging' ? label.includes('aging dashboard') :
+                 which==='pdd' ? label.includes('pdd dashboard') :
+                 which==='tat' ? label.includes('tat breach') :
+                 label.includes('processing pending');
     b.style.background=active?'#174ea6':'#fff';
-    b.style.color=active?'#fff':(which==='tat'?'#b42318':'#174ea6');
-    b.style.borderColor=active?'#174ea6':(which==='tat'?'#fecaca':'#cbd5e1');
+    b.style.color=active?'#fff':(label.includes('tat')?'#b42318':'#174ea6');
+    b.style.borderColor=active?'#174ea6':(label.includes('tat')?'#fecaca':'#cbd5e1');
   });
-  if(which==='processing'){document.getElementById('processingTat').value='';fillProcessing();renderProcessing();}
-  if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';fillProcessing();renderProcessing();}
-  if(which==='pdd'){fillPDD();renderPDD();}
-  if(which==='aging'){populateFilters();render();}
+
+  if(which==='processing'){
+    document.getElementById('processingTat').value='';
+    fillProcessing();
+    renderProcessing();
+  }
+  if(which==='tat'){
+    document.getElementById('processingTat').value='TAT Breached';
+    fillProcessing();
+    renderProcessing();
+  }
+  if(which==='pdd'){
+    fillPDD();
+    renderPDD();
+  }
+  if(which==='aging'){
+    populateFilters();
+    render();
+  }
 }
 
 // Automatically load the centrally shared dataset for every visitor.
