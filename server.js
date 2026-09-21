@@ -18,6 +18,26 @@ function save(name,buf,contentType,filename){
   fs.writeFileSync(keyPath(name),buf);
   fs.writeFileSync(keyPath(name+".meta.json"),JSON.stringify({contentType,filename,updatedAt:new Date().toISOString()}));
 }
+function normalizeMapping(input){
+  const out={};
+  for(const [rawKey,rawCluster] of Object.entries(input||{})){
+    const key=String(rawKey??"").trim().toUpperCase();
+    const cluster=String(rawCluster??"").trim();
+    if(key&&cluster) out[key]=cluster;
+  }
+  return out;
+}
+function mappingStats(mapping){
+  return {locations:Object.keys(mapping).length,clusters:new Set(Object.values(mapping)).size};
+}
+function detectMatrixColumns(headers){
+  const norm=x=>String(x??"").trim().toLowerCase().replace(/[_-]+/g," ").replace(/\s+/g," ");
+  const locationAliases=["location","location name","hub","hub name","hubname","hub code","hubcode","svc","rsc"];
+  const clusterAliases=["cluster","cluster name","cluster_name"];
+  const location= headers.find(h=>locationAliases.includes(norm(h))) || headers.find(h=>/hub|location|svc|rsc/.test(norm(h)));
+  const cluster= headers.find(h=>clusterAliases.includes(norm(h))) || headers.find(h=>norm(h).includes("cluster"));
+  return {location,cluster};
+}
 function send(name,res,header){
   const p=keyPath(name);
   if(!fs.existsSync(p))return res.status(404).json({error:"not_found"});
@@ -31,17 +51,29 @@ function send(name,res,header){
 app.get("/health",(req,res)=>res.json({ok:true}));
 app.get("/api/status",(req,res)=>res.json({ok:true,service:"kerala-operations-dashboard",dataDir:DATA_DIR,version:"central-mapping-v2"}));
 app.get("/api/dashboard/status",(req,res)=>{
-  const files=["dashboard","pdd-dashboard","processing-pending","cluster-matrix-mapping.json"];
+  const names=["dashboard","pdd-dashboard","processing-pending","cluster-matrix"];
   const out={};
-  for(const name of files){const p=keyPath(name);out[name]={exists:fs.existsSync(p),updatedAt:null};try{const m=JSON.parse(fs.readFileSync(keyPath(name+".meta.json"),"utf8"));out[name].updatedAt=m.updatedAt}catch{}}
+  for(const name of names){
+    const p=keyPath(name);
+    out[name]={exists:fs.existsSync(p),updatedAt:null};
+    try{const m=JSON.parse(fs.readFileSync(keyPath(name+".meta.json"),"utf8"));out[name].updatedAt=m.updatedAt||null}catch{}
+  }
+  try{
+    const m=JSON.parse(fs.readFileSync(keyPath("cluster-matrix-mapping.json"),"utf8"));
+    out["cluster-matrix"].exists=true;
+    out["cluster-matrix"].updatedAt=m.updatedAt||null;
+  }catch{}
   res.json({ok:true,...out});
 });
 app.get("/api/cluster-matrix/status",(req,res)=>{
   const p=keyPath("cluster-matrix-mapping.json");
-  if(!fs.existsSync(p))return res.json({ok:true,locations:0,updatedAt:null});
-  try{const x=JSON.parse(fs.readFileSync(p,"utf8"));return res.json({ok:true,locations:Object.keys(x.mapping||{}).length,updatedAt:x.updatedAt||null})}catch(e){return res.status(500).json({error:"mapping_read_failed"})}
+  if(!fs.existsSync(p))return res.json({ok:true,locations:0,clusters:0,updatedAt:null});
+  try{
+    const x=JSON.parse(fs.readFileSync(p,"utf8"));
+    const stats=mappingStats(normalizeMapping(x.mapping||{}));
+    return res.json({ok:true,...stats,updatedAt:x.updatedAt||null});
+  }catch(e){return res.status(500).json({ok:false,error:"Cluster Mapping could not be read."})}
 });
-
 app.post("/api/dashboard/upload",upload.single("file"),(req,res)=>{
   if(!req.file)return res.status(400).json({error:"No file received. Please select an Excel file."});
   save("dashboard",req.file.buffer,req.file.mimetype,req.file.originalname);
@@ -64,10 +96,12 @@ app.post("/api/processing/upload",upload.single("file"),(req,res)=>{
 app.get("/api/processing/latest",(req,res)=>send("processing-pending",res,"X-Processing-Filename"));
 
 app.post("/api/cluster-matrix/mapping",express.json({limit:"10mb"}),(req,res)=>{
-  const mapping=req.body&&req.body.mapping;
-  if(!mapping || typeof mapping!=="object" || Array.isArray(mapping) || !Object.keys(mapping).length)return res.status(400).json({error:"mapping_required"});
-  fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping,updatedAt:new Date().toISOString()}));
-  res.json({ok:true,locations:Object.keys(mapping).length,updatedAt:new Date().toISOString()});
+  const mapping=normalizeMapping(req.body&&req.body.mapping);
+  if(!Object.keys(mapping).length)return res.status(400).json({ok:false,error:"At least one valid Location → Cluster mapping is required."});
+  const updatedAt=new Date().toISOString();
+  fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping,updatedAt}));
+  const stats=mappingStats(mapping);
+  res.json({ok:true,...stats,updatedAt,mapping});
 });
 app.get("/api/cluster-matrix/mapping",(req,res)=>{
   const p=keyPath("cluster-matrix-mapping.json");
@@ -94,52 +128,36 @@ app.post("/api/cluster-matrix/upload-raw",express.raw({type:"*/*",limit:"100mb"}
 });
 
 app.post("/api/cluster-matrix/import",upload.any(),(req,res)=>{
-  if(!req.file)return res.status(400).json({error:"file_required"});
   try{
-    const wb=XLSX.read(req.file.buffer,{type:"buffer"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const data=XLSX.utils.sheet_to_json(ws,{defval:""});
-    if(!data.length)return res.status(400).json({error:"empty_file"});
-    const hs=Object.keys(data[0]);
-    const normH=x=>String(x??"").trim().toLowerCase().replace(/[_\-]+/g," ").replace(/\s+/g," ");
-    const hc=hs.find(h=>["hub name","hub","location","location name"].includes(normH(h)))||hs.find(h=>normH(h).includes("hub"));
-    const cc=hs.find(h=>["cluster name","cluster"].includes(normH(h)))||hs.find(h=>normH(h).includes("cluster"));
-    if(!hc||!cc)return res.status(400).json({error:"Need HUB NAME and CLUSTER NAME columns"});
-    const mapping={};
-    data.forEach(r=>{
-      const hub=String(r[hc]??"").trim().toUpperCase();
-      const cluster=String(r[cc]??"").trim();
-      if(hub&&cluster)mapping[hub]=cluster;
-    });
-    if(!Object.keys(mapping).length)return res.status(400).json({error:"No location/cluster mappings found"});
-    fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping,updatedAt:new Date().toISOString()}));
-    res.json({ok:true,locations:Object.keys(mapping).length,filename:req.file.originalname,updatedAt:new Date().toISOString()});
-  }catch(e){res.status(400).json({error:"Could not read the Excel file: "+e.message});}
-});
-app.post("/api/cluster-matrix/upload",upload.any(),(req,res)=>{
-  try{
-    const file=(req.files&&req.files.find(x=>x && x.buffer))||null;
-    if(!file)return res.status(400).json({error:"No file received. Please select an Excel or CSV matrix file."});
+    const file=(req.files||[]).find(x=>x && x.buffer);
+    if(!file)return res.status(400).json({ok:false,error:"No valid Cluster Mapping file was uploaded."});
     const wb=XLSX.read(file.buffer,{type:"buffer"});
+    if(!wb.SheetNames.length)return res.status(400).json({ok:false,error:"The uploaded file has no readable worksheet."});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const data=XLSX.utils.sheet_to_json(ws,{defval:""});
-    if(!data.length)return res.status(400).json({error:"empty_file"});
+    if(!data.length)return res.status(400).json({ok:false,error:"The uploaded Cluster Mapping file is empty."});
     const hs=Object.keys(data[0]);
-    const normH=x=>String(x??"").trim().toLowerCase().replace(/[_\\-]+/g," ").replace(/\\s+/g," ");
-    const hc=hs.find(h=>["hub name","hub","location","location name"].includes(normH(h)))||hs.find(h=>normH(h).includes("hub"));
-    const cc=hs.find(h=>["cluster name","cluster"].includes(normH(h)))||hs.find(h=>normH(h).includes("cluster"));
-    if(!hc||!cc)return res.status(400).json({error:"Need HUB NAME and CLUSTER NAME columns"});
+    const {location,cluster}=detectMatrixColumns(hs);
+    if(!location||!cluster){
+      return res.status(400).json({ok:false,error:"Cluster Mapping needs a Location/Hub and Cluster column. Accepted examples: HUB NAME, LOCATION, SVC, RSC and CLUSTER NAME."});
+    }
     const mapping={};
     data.forEach(row=>{
-      const hub=String(row[hc]??"").trim().toUpperCase();
-      const cluster=String(row[cc]??"").trim();
-      if(hub&&cluster)mapping[hub]=cluster;
+      const key=String(row[location]??"").trim().toUpperCase();
+      const value=String(row[cluster]??"").trim();
+      if(key&&value)mapping[key]=value;
     });
-    if(!Object.keys(mapping).length)return res.status(400).json({error:"No location/cluster mappings found"});
-    save("cluster-matrix",file.buffer,file.mimetype,file.originalname);
-    fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping,updatedAt:new Date().toISOString()}));
-    res.json({ok:true,filename:file.originalname,size:file.size,locations:Object.keys(mapping).length,updatedAt:new Date().toISOString()});
-  }catch(e){res.status(400).json({error:"Could not read the Cluster Matrix file: "+e.message});}
+    const clean=normalizeMapping(mapping);
+    if(!Object.keys(clean).length)return res.status(400).json({ok:false,error:"No valid Location → Cluster mappings were found in the uploaded file."});
+    const updatedAt=new Date().toISOString();
+    fs.writeFileSync(keyPath("cluster-matrix-mapping.json"),JSON.stringify({mapping:clean,updatedAt}));
+    save("cluster-matrix",file.buffer,file.mimetype||"application/octet-stream",file.originalname||"cluster-matrix");
+    const stats=mappingStats(clean);
+    return res.json({ok:true,...stats,filename:file.originalname||"cluster-matrix",updatedAt,mapping:clean});
+  }catch(e){
+    console.error("Cluster Matrix import failed:",e);
+    return res.status(400).json({ok:false,error:"Could not read the Cluster Mapping file. Please verify the file format and required columns."});
+  }
 });
 app.get("/api/cluster-matrix/latest",(req,res)=>send("cluster-matrix",res,"X-Cluster-Matrix-Filename"));
 
