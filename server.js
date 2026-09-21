@@ -29,6 +29,19 @@ function send(name,res,header){
 }
 
 app.get("/health",(req,res)=>res.json({ok:true}));
+app.get("/api/status",(req,res)=>res.json({ok:true,service:"kerala-operations-dashboard",dataDir:DATA_DIR,version:"central-mapping-v2"}));
+app.get("/api/dashboard/status",(req,res)=>{
+  const files=["dashboard","pdd-dashboard","processing-pending","cluster-matrix-mapping.json"];
+  const out={};
+  for(const name of files){const p=keyPath(name);out[name]={exists:fs.existsSync(p),updatedAt:null};try{const m=JSON.parse(fs.readFileSync(keyPath(name+".meta.json"),"utf8"));out[name].updatedAt=m.updatedAt}catch{}}
+  res.json({ok:true,...out});
+});
+app.get("/api/cluster-matrix/status",(req,res)=>{
+  const p=keyPath("cluster-matrix-mapping.json");
+  if(!fs.existsSync(p))return res.json({ok:true,locations:0,updatedAt:null});
+  try{const x=JSON.parse(fs.readFileSync(p,"utf8"));return res.json({ok:true,locations:Object.keys(x.mapping||{}).length,updatedAt:x.updatedAt||null})}catch(e){return res.status(500).json({error:"mapping_read_failed"})}
+});
+
 app.post("/api/dashboard/upload",upload.single("file"),(req,res)=>{
   if(!req.file)return res.status(400).json({error:"No file received. Please select an Excel file."});
   save("dashboard",req.file.buffer,req.file.mimetype,req.file.originalname);
