@@ -21,18 +21,51 @@
 .age{font-weight:700}.a0{color:var(--ok)}.a1{color:#65a30d}.a2{color:var(--warn)}.a3{color:#ea580c}.a4{color:var(--danger)}
 .empty{padding:45px;text-align:center;color:var(--muted)}
 .note{font-size:11px;color:var(--muted);margin-top:8px}
+.pp-priority-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:9999;align-items:center;justify-content:center;padding:20px}
+.pp-priority-modal{width:min(680px,96vw);background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;border-top:6px solid #dc2626}
+.pp-priority-head{padding:18px 22px;background:#fff7f7;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pp-priority-title{font-size:20px;font-weight:850;color:#b42318}
+.pp-priority-count{font-size:34px;font-weight:900;color:#dc2626}
+.pp-priority-body{padding:20px 22px}
+.pp-priority-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}
+.pp-priority-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px}
+.pp-priority-box b{display:block;font-size:20px;color:#172033}.pp-priority-box span{font-size:11px;color:#667085}
+.pp-priority-timer{font-size:12px;color:#667085;text-align:center;margin-top:12px}
+.pp-priority-bar{height:5px;background:#fee2e2}.pp-priority-progress{height:100%;background:#dc2626;width:100%;transition:width 1s linear}
+.pp-priority-close{width:100%;border:0;background:#b42318;color:#fff;padding:12px;border-radius:8px;font-weight:800;cursor:pointer}
+.pp-age-breach{font-weight:900;color:#dc2626;background:#fef2f2;padding:3px 7px;border-radius:5px}
+.pp-age-ok{font-weight:750;color:#059669}
+@media(max-width:650px){.pp-priority-grid{grid-template-columns:1fr}.pp-priority-head{align-items:flex-start}}
 @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}.filter-grid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}} 
 </style>
 </head>
 <body>
+<div id="ppPriorityOverlay" class="pp-priority-overlay" role="alertdialog" aria-modal="true" aria-labelledby="ppPriorityTitle">
+  <div class="pp-priority-modal">
+    <div class="pp-priority-head">
+      <div><div id="ppPriorityTitle" class="pp-priority-title">⚠ PRIORITY — TAT BREACH</div><div style="font-size:12px;color:#667085;margin-top:4px">Processing Pending requires immediate action</div></div>
+      <div id="ppPriorityCount" class="pp-priority-count">0</div>
+    </div>
+    <div class="pp-priority-body">
+      <div id="ppPriorityMessage" style="font-size:14px;font-weight:700;color:#243b63"></div>
+      <div class="pp-priority-grid">
+        <div class="pp-priority-box"><b id="ppPopupRto">0</b><span>RTO</span></div>
+        <div class="pp-priority-box"><b id="ppPopupMisroute">0</b><span>Misroute</span></div>
+        <div class="pp-priority-box"><b id="ppPopupHubs">0</b><span>Affected Hubs</span></div>
+      </div>
+      <button class="pp-priority-close" onclick="closeProcessingPriority()">Close &amp; Continue</button>
+      <div class="pp-priority-timer">This priority alert will close automatically in <b id="ppPrioritySeconds">8</b> seconds.</div>
+    </div>
+    <div class="pp-priority-bar"><div id="ppPriorityProgress" class="pp-priority-progress"></div></div>
+  </div>
+</div>
 <header class="header">
   <div><div class="title">Kerala Aging Dashboard</div><div class="sub">Location • Ship Pincode • Aging analysis • Geo Mapper tracking | Upload raw Excel/CSV data</div></div>
   <div class="actions">
     <button class="btn" onclick="downloadCSV()">Download CSV</button>
     <button class="btn" onclick="downloadExcel()">Download Excel</button>
-    <button class="btn" onclick="window.open('/matrix-manager','_blank')">Cluster Mapping</button>
     <button class="btn primary" onclick="document.getElementById('file').click()">Upload Raw File</button>
-    
+    <button class="btn" onclick="document.getElementById('matrixFile').click()">Update Cluster Matrix</button>
   </div>
 </header>
 
@@ -41,7 +74,7 @@
 
 <section id="processingSection" style="display:none">
   <div class="upload">
-    <input id="processingFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadProcessingFile(event)">
+    <input id="processingFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadProcessingFile(event)">
     <label class="upload-label" for="processingFile">Choose Processing Pending File</label>
     <div><b id="processingFileName">No Processing Pending file uploaded</b><div class="status" id="processingStatus">Status RTO = RTO • Status Shipped = Misroute • Aging = Today − Current Process Date. COK/HUB and KANNUR/HUB are excluded.</div></div>
   </div>
@@ -75,7 +108,7 @@
 
 <section id="pddSection" style="display:none">
   <div class="upload">
-    <input id="pddFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadPDDFile(event)">
+    <input id="pddFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadPDDFile(event)">
     <label class="upload-label" for="pddFile">Choose PDD Excel / CSV</label>
     <div><b id="pddFileName">No PDD file uploaded</b><div class="status" id="pddStatus">Upload the separate PDD raw file. Location will use the same Cluster Matrix.</div></div>
   </div>
@@ -110,8 +143,8 @@
   <section class="panel"><h3>Filtered PDD Raw Data <span id="pRowCount" class="sub"></span></h3><div class="table-wrap"><table id="pRawTable"></table><div id="pEmpty" class="empty">Upload PDD data to start.</div></div></section>
 </section>
   <div class="upload">
-    <input id="file" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadFile(event)">
-    <input id="matrixFile" type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadMatrixFile(event)" style="display:none">
+    <input id="file" type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event)">
+    <input id="matrixFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadMatrixFile(event)" style="display:none">
     <label class="upload-label" for="file">Choose Excel / CSV</label>
     <div><b id="fileName">No file uploaded</b><div class="status" id="status">Upload your raw file. The dashboard automatically detects common Location, Pincode and Aging fields.</div></div>
   </div>
@@ -125,7 +158,7 @@
       <div class="filter"><label>AGING BUCKET</label><select id="aging" onchange="render()"><option value="">All</option><option>0-2 Days</option><option>3-5 Days</option><option>6-7 Days</option><option>8-15 Days</option><option>16-30 Days</option><option>31+ Days</option></select></div>
       <div class="filter"><label>SEARCH</label><input id="search" placeholder="AWB / customer / pincode..." oninput="render()"></div>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="pdd-btn" type="button" onclick="clearAgingFilters()">Clear Filters</button></div><div class="note">Filters apply to the dashboard, summary tables and downloads.</div>
+    <div class="note">Filters apply to the dashboard, summary tables and downloads.</div>
   </section>
 
   <section class="cards">
@@ -159,7 +192,7 @@ let rows=[], headers=[], map={}, locChart, ageChart, clusterMatrix={};
 
 const aliases={
  state:['state','region','st','state name'],
- location:['location','hub','hubname','hub name','hub code','hubcode','svc','rsc','location name','city'],
+ location:['location','hub','hubname','hub name','svc','rsc','location name','city'],
  pincode:['shippincode','ship pincode','ship_pin_code','ship pin code','pincode','pin code','pin','destination pincode','destination_pincode','postcode'],
  aging:['aging','ageing','age','aging days','ageing days','aging_day','aging_days','days','pending days'],
  awb:['awb','awb no','awb number','shipment','shipment id','waybill']
@@ -202,16 +235,14 @@ async function loadMatrixFile(e){
       const wb=XLSX.read(ev.target.result,{type:'array'}), ws=wb.Sheets[wb.SheetNames[0]];
       const mrows=XLSX.utils.sheet_to_json(ws,{defval:''});
       const hs=mrows.length?Object.keys(mrows[0]):[];
-      const hc=hs.find(h=>['hub name','hub','hubname','hub code','hubcode','location','location name','svc','rsc'].includes(norm(h)))||hs.find(h=>/hub|location|svc|rsc/.test(norm(h)));
+      const hc=hs.find(h=>['hub name','hub','location','location name'].includes(norm(h)))||hs.find(h=>norm(h).includes('hub'));
       const cc=hs.find(h=>['cluster name','cluster','cluster name '].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
       if(!hc||!cc) return alert('Matrix must contain HUB NAME / Location and CLUSTER NAME columns.');
       const m={}; mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
-      const fd=new FormData(); fd.append('file',f);
-      const r=await fetch('/api/cluster-matrix/upload',{method:'POST',body:fd});
+      const r=await fetch('/api/cluster-matrix/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mapping:m})});
       const x=await r.json(); if(!r.ok||!x.ok) throw new Error(x.error||'Matrix update failed');
-      clusterMatrix=x.mapping||m; clusterMatrixUpdatedAt=x.updatedAt||new Date().toISOString(); populateFilters(); render();
-      document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${Number(x.locations||Object.keys(m).length).toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
-      e.target.value='';
+      clusterMatrix=m; populateFilters(); render();
+      document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${x.locations.toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
     }catch(err){alert('Could not update cluster matrix: '+err.message)}
   };
   reader.readAsArrayBuffer(f);
@@ -228,10 +259,7 @@ function loadFile(e){
       headers=rows.length?Object.keys(rows[0]):[];
       map=detect(headers);
       const sourceRowCount=rows.length;
-      if(map.state){
-        const stateValues=unique(rows.map(r=>norm(r[map.state])));
-        if(stateValues.includes('kerala')) rows=rows.filter(r=>norm(r[map.state])==='kerala');
-      }
+      if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
       document.getElementById('status').innerHTML=`Loaded <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. Syncing to team…`;
       populateFilters(); render();
       const fd=new FormData(); fd.append('file',f);
@@ -244,39 +272,19 @@ function loadFile(e){
   reader.readAsArrayBuffer(f);
 }
 
-let clusterMatrixUpdatedAt='';
-async function loadClusterMatrix(forceRender=false){
+async function loadClusterMatrix(){
   try{
-    const mr=await fetch('/api/cluster-matrix/mapping',{cache:'no-store'});
-    if(!mr.ok)return false;
-    const j=await mr.json();
-    const next=j.mapping||{};
-    const changed=forceRender || j.updatedAt!==clusterMatrixUpdatedAt;
-    clusterMatrix=next;
-    clusterMatrixUpdatedAt=j.updatedAt||new Date().toISOString();
-    if(changed){
-      populateFilters();
-      if(typeof fillPDD==='function')fillPDD();
-      if(typeof fillProcessing==='function')fillProcessing();
-      if(rows.length)render();
-      if(pddRows.length)renderPDD();
-      if(processingRows.length)renderProcessing();
+    const r=await fetch('/api/cluster-matrix/latest',{cache:'no-store'});
+    if(r.ok){
+      const data=await r.json();
+      if(data && typeof data==='object' && !Array.isArray(data)) clusterMatrix=data;
     }
-    return changed;
-  }catch(e){return false}
-}
-async function syncClusterMapping(){
-  try{
-    const changed=await loadClusterMatrix(false);
-    if(changed){
-      const s=document.getElementById('status');
-      if(s && rows.length)s.innerHTML='Cluster mapping refreshed • <b>'+Object.keys(clusterMatrix).length.toLocaleString()+'</b> locations mapped. <b>Applied to all dashboards.</b>';
-      const ps=document.getElementById('pddStatus');
-      if(ps && pddRows.length)ps.innerHTML='Cluster mapping refreshed • <b>Applied to PDD.</b>';
-      const pp=document.getElementById('processingStatus');
-      if(pp && processingRows.length)pp.innerHTML='Cluster mapping refreshed • <b>Applied to Processing Pending.</b>';
-    }
-  }catch(e){}
+  }catch(e){ /* keep the last in-memory matrix on transient failures */ }
+  // The matrix is loaded asynchronously. Re-apply it to every already-loaded
+  // dataset so visitors never see stale "Unmapped" values after refresh.
+  if(rows.length){ populateFilters(); render(); }
+  if(pddRows.length){ fillPDD(); renderPDD(); }
+  if(processingRows.length){ fillProcessing(); renderProcessing(); }
 }
 async function loadLatestShared(){
   try{
@@ -292,10 +300,7 @@ async function loadLatestShared(){
     headers=rows.length?Object.keys(rows[0]):[];
     map=detect(headers);
     const sourceRowCount=rows.length;
-    if(map.state){
-      const stateValues=unique(rows.map(r=>norm(r[map.state])));
-      if(stateValues.includes('kerala')) rows=rows.filter(r=>norm(r[map.state])==='kerala');
-    }
+    if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
     populateFilters(); render();
     document.getElementById('status').innerHTML=`Loaded shared data • <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. <b>Synced for all users.</b>`;
   }catch(err){
@@ -307,12 +312,6 @@ function populateFilters(){
   fillSelect('location',rows.map(r=>val(r,'location')),false);
   fillSelect('pincode',rows.map(r=>val(r,'pincode')),false);
   fillSelect('cluster',rows.map(r=>rowCluster(r)),false);
-}
-function clearAgingFilters(){
-  ['state','location','pincode','cluster','aging','search'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-  render();
 }
 function filtered(){
   const s=document.getElementById('state').value,l=document.getElementById('location').value,p=document.getElementById('pincode').value,c=document.getElementById('cluster').value,a=document.getElementById('aging').value,q=norm(document.getElementById('search').value);
@@ -410,67 +409,57 @@ function geoMapperLink() {
 })();
 
 let processingRows=[],processingHeaders=[],processingMap={},ppStatusChart;
-const processingAliases={
- state:['state','region','st','state name'],
- status:['status','shipment status','current status'],
- currenthub:['currenthubname','current hub name','current hub','currenthub','hub name','hub'],
- currentprocessdate:['currentprocessdate','current process date','current_process_date','process date','current process datetime','current process date time','process_date'],
- currentprocess:['currentprocess','current process','process','current process name','current process type'],
- pincode:['shippincode','ship pincode','shippin code','ship pin code','pincode','pin code','destination pincode','destination pin code'],
- awb:['shippingid','shipping id','awb','awb no','awb number','shipment','shipment id','waybill']
-};
-function processingDetect(hs){
- const o={};
- for(const k of Object.keys(processingAliases)){
-   let h=hs.find(x=>processingAliases[k].includes(norm(x)));
-   if(!h)h=hs.find(x=>processingAliases[k].some(a=>norm(x).includes(a)));
-   o[k]=h||null;
- }
- return o;
-}
-function processingDate(r){
- const v=processingVal(r,'currentprocessdate');
- if(v===''||v==null)return null;
- if(v instanceof Date&&!isNaN(v))return v;
- if(typeof v==='number'&&v>20000&&v<60000)return new Date(Date.UTC(1899,11,30)+v*86400000);
- const s=String(v).trim();
- let m=s.match(/^(\\d{1,2})[\\/\\-.](\\d{1,2})[\\/\\-.](\\d{4})(?:\\s+(\\d{1,2}):(\\d{2})(?::(\\d{2}))?)?/);
- if(m){
-   const day=Number(m[1]),month=Number(m[2])-1,year=Number(m[3]),hh=Number(m[4]||0),mm=Number(m[5]||0),ss=Number(m[6]||0);
-   const d=new Date(year,month,day,hh,mm,ss);
-   if(d.getFullYear()===year&&d.getMonth()===month&&d.getDate()===day)return d;
- }
- const d=new Date(s);
- return isNaN(d)?null:d;
-}
+const processingAliases={state:['state','region','st','state name'],status:['status'],currenthub:['currenthubname','current hub name','current hub','currenthub'],currentprocessdate:['currentprocessdate','current process date','current_process_date','process date'],currentprocess:['currentprocess','current process','process'],pincode:['shippincode','ship pincode','shippin code','pincode','pin code'],awb:['shippingid','awb','awb no','awb number','shipment','shipment id','waybill']};
+function processingDetect(hs){const o={};for(const k of Object.keys(processingAliases)){let h=hs.find(x=>processingAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>processingAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null}return o}
 function processingVal(r,k){return processingMap[k]?r[processingMap[k]]:''}
 function processingStatus(r){const s=norm(processingVal(r,'status'));if(s==='rto')return 'RTO';if(s==='shipped')return 'Misroute';return String(processingVal(r,'status')||'Other')}
-function processingDate(r){const v=processingVal(r,'currentprocessdate');if(v===''||v==null)return null;if(typeof v==='number'&&v>20000&&v<60000)return new Date(Date.UTC(1899,11,30)+v*86400000);const d=new Date(v);return isNaN(d)?null:d}
+function processingDate(r){const v=processingVal(r,'currentprocessdate');if(!v)return null;const d=new Date(v);return isNaN(d)?null:d}
 function processingAge(r){const d=processingDate(r);if(!d)return 0;const now=new Date();const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());const pd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return Math.max(0,Math.floor((t-pd)/86400000))}
 function processingExcluded(r){return /^(cok\/hub|kannur\/hub)$/i.test(String(processingVal(r,'currenthub')).trim())}
-function processingEligible(){return processingRows.filter(r=>{if(processingExcluded(r))return false;const hub=String(processingVal(r,'currenthub')||'').trim();if(!hub)return false;return true})}
+function processingEligible(){return processingRows.filter(r=>!processingExcluded(r))}
 function processingCluster(r){const k=String(processingVal(r,'currenthub')||'').trim().toUpperCase();return clusterMatrix[k]||'Unmapped'}
 function processingTatStatus(r){return processingAge(r)>2?'TAT Breached':'Within TAT'}
+let ppPriorityTimer=null,ppPriorityShown=false;
+function closeProcessingPriority(){
+  const o=document.getElementById('ppPriorityOverlay'); if(o)o.style.display='none';
+  if(ppPriorityTimer){clearInterval(ppPriorityTimer);ppPriorityTimer=null}
+}
+function showProcessingPriority(){
+  const all=processingEligible(), breaches=all.filter(r=>processingAge(r)>2);
+  if(!breaches.length)return;
+  const rto=breaches.filter(r=>processingStatus(r)==='RTO').length;
+  const mis=breaches.filter(r=>processingStatus(r)==='Misroute').length;
+  const hubs=unique(breaches.map(r=>processingVal(r,'currenthub'))).filter(Boolean).length;
+  document.getElementById('ppPriorityCount').textContent=breaches.length.toLocaleString();
+  document.getElementById('ppPopupRto').textContent=rto.toLocaleString();
+  document.getElementById('ppPopupMisroute').textContent=mis.toLocaleString();
+  document.getElementById('ppPopupHubs').textContent=hubs.toLocaleString();
+  document.getElementById('ppPriorityMessage').textContent=breaches.length.toLocaleString()+' shipment(s) have Aging > 2 days and are classified as TAT Breached. Please close these on priority.';
+  const o=document.getElementById('ppPriorityOverlay'); o.style.display='flex';
+  let seconds=8; document.getElementById('ppPrioritySeconds').textContent=seconds;
+  document.getElementById('ppPriorityProgress').style.width='100%';
+  if(ppPriorityTimer)clearInterval(ppPriorityTimer);
+  ppPriorityTimer=setInterval(()=>{seconds--;document.getElementById('ppPrioritySeconds').textContent=Math.max(seconds,0);document.getElementById('ppPriorityProgress').style.width=(Math.max(seconds,0)/8*100)+'%';if(seconds<=0)closeProcessingPriority()},1000);
+}
 function fillProcessing(){const d=processingEligible();fillSelect('processingHub',d.map(r=>processingVal(r,'currenthub')),false);fillSelect('processingCluster',d.map(r=>processingCluster(r)),false);fillSelect('processingAging',unique(d.map(r=>String(processingAge(r)))),false)}
 function filteredProcessing(){const s=document.getElementById('processingStatusFilter').value,h=document.getElementById('processingHub').value,c=document.getElementById('processingCluster').value,a=document.getElementById('processingAging').value,t=document.getElementById('processingTat').value,q=norm(document.getElementById('processingSearch').value);return processingEligible().filter(r=>{if(s&&processingStatus(r)!==s)return false;if(h&&String(processingVal(r,'currenthub'))!==h)return false;if(c&&processingCluster(r)!==c)return false;if(a&&String(processingAge(r))!==a)return false;if(t&&processingTatStatus(r)!==t)return false;if(q&&!processingHeaders.some(x=>norm(r[x]).includes(q)))return false;return true})}
 function renderProcessing(){const d=filteredProcessing(),tat=d.filter(r=>processingAge(r)>2),rto=d.filter(r=>processingStatus(r)==='RTO').length,mis=d.filter(r=>processingStatus(r)==='Misroute').length,avg=d.length?d.reduce((s,r)=>s+processingAge(r),0)/d.length:0;document.getElementById('ppTotal').textContent=d.length.toLocaleString();document.getElementById('ppRto').textContent=rto.toLocaleString();document.getElementById('ppMisroute').textContent=mis.toLocaleString();document.getElementById('ppTat').textContent=tat.length.toLocaleString();document.getElementById('ppAvg').textContent=avg.toFixed(1);document.getElementById('ppHubs').textContent=unique(d.map(r=>processingVal(r,'currenthub'))).length;document.getElementById('ppRowCount').textContent='('+d.length.toLocaleString()+' rows)';document.getElementById('ppTatCount').textContent='('+tat.length.toLocaleString()+' AWBs)';makeProcessingHubTable(d);makeProcessingTatTable(tat);makeProcessingRaw(d);if(ppStatusChart)ppStatusChart.destroy();ppStatusChart=new Chart(document.getElementById('ppStatusChart'),{type:'doughnut',data:{labels:['RTO','Misroute'],datasets:[{data:[rto,mis]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})}
 function makeProcessingHubTable(d){const o={};d.forEach(r=>{const h=String(processingVal(r,'currenthub')||'Unknown');o[h]??={total:0,rto:0,mis:0,tat:0};o[h].total++;if(processingStatus(r)==='RTO')o[h].rto++;if(processingStatus(r)==='Misroute')o[h].mis++;if(processingAge(r)>2)o[h].tat++});const arr=Object.entries(o).sort((a,b)=>b[1].total-a[1].total);document.getElementById('ppHubTable').innerHTML='<thead><tr><th>Current Hub</th><th>Total</th><th>RTO</th><th>Misroute</th><th>TAT Breach</th></tr></thead><tbody>'+arr.map(([h,v])=>'<tr><td><b>'+esc(h)+'</b></td><td>'+v.total+'</td><td>'+v.rto+'</td><td>'+v.mis+'</td><td>'+v.tat+'</td></tr>').join('')+'</tbody>'}
-function makeProcessingTatTable(d){document.getElementById('ppTatEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppTatTable').innerHTML='';return}const hs=['AWB','Status Type','Current Hub','Cluster','Current Process','Current Process Date','Aging','TAT Status','Ship Pincode'];document.getElementById('ppTatTable').innerHTML='<thead><tr>'+hs.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(String(processingVal(r,'awb')||''))+'</b></td><td>'+esc(processingStatus(r))+'</td><td>'+esc(String(processingVal(r,'currenthub')||''))+'</td><td>'+esc(processingCluster(r))+'</td><td>'+esc(String(processingVal(r,'currentprocess')||''))+'</td><td>'+esc(String(processingVal(r,'currentprocessdate')||''))+'</td><td class="age a4">'+processingAge(r)+'</td><td><b>TAT Breached</b></td><td>'+esc(String(processingVal(r,'pincode')||''))+'</td></tr>').join('')+'</tbody>'}
-function makeProcessingRaw(d){document.getElementById('ppEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppRawTable').innerHTML='';return}document.getElementById('ppRawTable').innerHTML='<thead><tr><th>Cluster</th><th>Status Type</th><th>Auto Aging</th><th>TAT Status</th>'+processingHeaders.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(processingCluster(r))+'</b></td><td>'+esc(processingStatus(r))+'</td><td>'+processingAge(r)+'</td><td>'+processingTatStatus(r)+'</td>'+processingHeaders.map(h=>'<td>'+esc(String(r[h]??''))+'</td>').join('')+'</tr>').join('')+'</tbody>'}
+function makeProcessingTatTable(d){document.getElementById('ppTatEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppTatTable').innerHTML='';return}const hs=['AWB','Status Type','Current Hub','Cluster','Current Process','Current Process Date','Aging','TAT Status','Ship Pincode'];document.getElementById('ppTatTable').innerHTML='<thead><tr>'+hs.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(String(processingVal(r,'awb')||''))+'</b></td><td>'+esc(processingStatus(r))+'</td><td>'+esc(String(processingVal(r,'currenthub')||''))+'</td><td>'+esc(processingCluster(r))+'</td><td>'+esc(String(processingVal(r,'currentprocess')||''))+'</td><td>'+esc(String(processingVal(r,'currentprocessdate')||''))+'</td><td><span class="pp-age-breach">'+processingAge(r)+' day(s)</span></td><td><b class="pp-age-breach">TAT Breached</b></td><td>'+esc(String(processingVal(r,'pincode')||''))+'</td></tr>').join('')+'</tbody>'}
+function makeProcessingRaw(d){document.getElementById('ppEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppRawTable').innerHTML='';return}document.getElementById('ppRawTable').innerHTML='<thead><tr><th>Cluster</th><th>Status Type</th><th>Auto Aging</th><th>TAT Status</th>'+processingHeaders.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(processingCluster(r))+'</b></td><td>'+esc(processingStatus(r))+'</td><td><span class="'+(processingAge(r)>2?'pp-age-breach':'pp-age-ok')+'">'+processingAge(r)+' day(s)</span></td><td><b class="'+(processingAge(r)>2?'pp-age-breach':'pp-age-ok')+'">'+processingTatStatus(r)+'</b></td>'+processingHeaders.map(h=>'<td>'+esc(String(r[h]??''))+'</td>').join('')+'</tr>').join('')+'</tbody>'}
 function processingDownloadRows(){const d=filteredProcessing();if(!d.length){alert('No Processing Pending data available.');return null}return d.map(r=>Object.assign({AWB:processingVal(r,'awb'),'Status Type':processingStatus(r),'Current Hub':processingVal(r,'currenthub'),Cluster:processingCluster(r),'Current Process':processingVal(r,'currentprocess'),'Current Process Date':processingVal(r,'currentprocessdate'),'Aging':processingAge(r),'TAT Status':processingTatStatus(r),'Ship Pincode':processingVal(r,'pincode')},r))}
 function downloadProcessingCSV(){const data=processingDownloadRows();if(!data)return;const hs=['AWB','Status Type','Current Hub','Cluster','Current Process','Current Process Date','Aging','TAT Status','Ship Pincode',...processingHeaders];const lines=[hs.map(csv).join(',')].concat(data.map(r=>hs.map(h=>r[h]).map(csv).join(',')));save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'processing_pending_awb.csv')}
 function downloadProcessingExcel(){const data=processingDownloadRows();if(!data)return;const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Processing Pending');XLSX.writeFile(wb,'processing_pending_awb.xlsx')}
-function loadProcessingFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('processingFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);const source=processingRows.length;fillProcessing();renderProcessing();const fd=new FormData();fd.append('file',f);const rr=await fetch('/api/processing/upload',{method:'POST',body:fd}),x=await rr.json();if(!rr.ok||!x.ok)throw new Error(x.error||'Processing upload failed');document.getElementById('processingStatus').innerHTML='Loaded <b>'+processingEligible().length.toLocaleString()+'</b> active rows. Status: RTO / Misroute. Aging auto-calculated from Current Process Date. COK/HUB and KANNUR/HUB excluded. <b>Synced for all users.</b>'}catch(err){alert('Could not read/upload Processing Pending file: '+err.message)}};rd.readAsArrayBuffer(f)}
-async function loadLatestProcessing(){try{const r=await fetch('/api/processing/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-Processing-Filename')||'Latest Processing Pending data.xlsx';document.getElementById('processingFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);fillProcessing();renderProcessing();document.getElementById('processingStatus').innerHTML='Loaded shared Processing Pending data • <b>'+processingEligible().length.toLocaleString()+'</b> active rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
+function loadProcessingFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('processingFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);const source=processingRows.length;fillProcessing();renderProcessing();setTimeout(showProcessingPriority,350);const fd=new FormData();fd.append('file',f);const rr=await fetch('/api/processing/upload',{method:'POST',body:fd}),x=await rr.json();if(!rr.ok||!x.ok)throw new Error(x.error||'Processing upload failed');document.getElementById('processingStatus').innerHTML='Loaded <b>'+processingEligible().length.toLocaleString()+'</b> active rows. Status: RTO / Misroute. Aging auto-calculated from Current Process Date. COK/HUB and KANNUR/HUB excluded. <b>Synced for all users.</b>'}catch(err){alert('Could not read/upload Processing Pending file: '+err.message)}};rd.readAsArrayBuffer(f)}
+async function loadLatestProcessing(){try{const r=await fetch('/api/processing/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-Processing-Filename')||'Latest Processing Pending data.xlsx';document.getElementById('processingFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);fillProcessing();renderProcessing();setTimeout(showProcessingPriority,350);document.getElementById('processingStatus').innerHTML='Loaded shared Processing Pending data • <b>'+processingEligible().length.toLocaleString()+'</b> active rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
 
 let pddRows=[],pddHeaders=[],pddMap={};
 const pddAliases={state:['state','region','st','state name'],location:['location','hub','hubname','hub name','svc','rsc','location name','city'],pincode:['shippincode','ship pincode','ship_pin_code','ship pin code','pincode','pin code','pin','destination pincode','destination_pincode','postcode'],status:['pdd status','status','pdd_status','pdd result','result','delivery status'],notificationstatus:['notificationstatus','notification status'],totalattemptcount:['totalattemptcount','total attempt count','attemptcount','attempt count'],current_process:['current_process','current process','process'],current_processtime:['current_processtime','current process time','process time'],awb:['awb','awb no','awb number','shipment','shipment id','waybill']};
 function pddDetect(hs){const o={};for(const k of Object.keys(pddAliases)){let h=hs.find(x=>pddAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>pddAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null;}return o}
 function pddVal(r,k){return pddMap[k]?r[pddMap[k]]:''}
 function pddIsRecord(r){return norm(pddVal(r,'notificationstatus'))==='pending'&&Number(pddVal(r,'totalattemptcount'))===0}
-function localDateString(d){const x=new Date(d);if(isNaN(x))return '';return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
-function pddProcessDate(r){const v=pddVal(r,'current_processtime');if(!v)return '';if(typeof v==='number'&&v>20000&&v<60000){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return localDateString(d)}const d=new Date(v);if(!isNaN(d))return localDateString(d);const m=String(v).match(/(20\d{2})[-\/]?(\d{2})[-\/]?(\d{2})/);return m?m.slice(1).join('-'):String(v).slice(0,10)}
-function pddIsAttempt(r){if(!pddIsRecord(r))return false;const proc=norm(pddVal(r,'current_process'));if(/out for delivery/.test(proc))return true;const today=localDateString(new Date());return pddProcessDate(r)===today&&!/bagout|baginscan|bagin/.test(proc)}
+function pddProcessDate(r){const v=pddVal(r,'current_processtime');if(!v)return '';const d=new Date(v);if(!isNaN(d))return d.toISOString().slice(0,10);const m=String(v).match(/(20\d{2})[-\/]?(\d{2})[-\/]?(\d{2})/);return m?m.slice(1).join('-'):String(v).slice(0,10)}
+function pddIsAttempt(r){if(!pddIsRecord(r))return false;const proc=norm(pddVal(r,'current_process'));if(/out for delivery/.test(proc))return true;const today=new Date().toISOString().slice(0,10);return pddProcessDate(r)===today&&!/bagout|baginscan|bagin/.test(proc)}
 function pddIsFailure(r){return pddIsRecord(r)&&!pddIsAttempt(r)}
 function pddMetricRows(d){return d.filter(pddIsRecord)}
 function fillPDD(){fillSelect('pddState',pddRows.map(r=>pddVal(r,'state')),false);fillSelect('pddLocation',pddRows.map(r=>pddVal(r,'location')),false);fillSelect('pddPincode',pddRows.map(r=>pddVal(r,'pincode')),false);fillSelect('pddCluster',pddRows.map(r=>rowPDDCluster(r)),false);fillSelect('pddStatusFilter',pddRows.map(r=>pddVal(r,'status')),false)}
@@ -482,55 +471,18 @@ function makePDDRaw(d){document.getElementById('pEmpty').style.display=d.length?
 function pddDownloadRows(){const d=filteredPDD().filter(r=>pddIsRecord(r)&&!pddIsAttempt(r));if(!d.length){alert('No pending unattempted PDD data available.');return null}return d.map(r=>Object.assign({Cluster:rowPDDCluster(r),PDD:'YES','PDD Attempt':'NO','PDD Failure':'YES'},r))}
 function downloadPDDCSV(){const data=pddDownloadRows();if(!data)return;const hs=['Cluster','PDD','PDD Attempt','PDD Failure',...pddHeaders];const lines=[hs.map(csv).join(',')].concat(data.map(r=>hs.map(h=>r[h]).map(csv).join(',')));save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'pdd_pending_unattempted.csv')}
 function downloadPDDExcel(){const data=pddDownloadRows();if(!data)return;const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pending PDD');XLSX.writeFile(wb,'pdd_pending_unattempted.xlsx')}
-function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('pddFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;fillPDD();renderPDD();const fd=new FormData();fd.append('file',f);const r=await fetch('/api/pdd/upload',{method:'POST',body:fd}),x=await r.json();if(!r.ok||!x.ok)throw new Error(x.error||'PDD upload failed');document.getElementById('pddStatus').innerHTML='Loaded <b>'+pddRows.length.toLocaleString()+'</b> PDD rows. Location=<b>'+(pddMap.location||'not found')+'</b>, Status=<b>'+(pddMap.status||'not found')+'</b>. <b>Synced separately for all users.</b>'}catch(err){alert('Could not read/upload PDD file: '+err.message)}};rd.readAsArrayBuffer(f)}
-async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
-function showDashboard(which){
-  const main=document.querySelector('main.wrap');
-  const pdd=document.getElementById('pddSection');
-  const pp=document.getElementById('processingSection');
-  const tabBar=main.children[0];
-  const agingNodes=[...main.children].filter(el=>el!==tabBar && el!==pdd && el!==pp);
+function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('pddFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();const fd=new FormData();fd.append('file',f);const r=await fetch('/api/pdd/upload',{method:'POST',body:fd}),x=await r.json();if(!r.ok||!x.ok)throw new Error(x.error||'PDD upload failed');document.getElementById('pddStatus').innerHTML='Loaded <b>'+pddRows.length.toLocaleString()+'</b> PDD rows. Location=<b>'+(pddMap.location||'not found')+'</b>, Status=<b>'+(pddMap.status||'not found')+'</b>. <b>Synced separately for all users.</b>'}catch(err){alert('Could not read/upload PDD file: '+err.message)}};rd.readAsArrayBuffer(f)}
+async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
+function showDashboard(which){const main=document.querySelector('main.wrap'),pdd=document.getElementById('pddSection'),pp=document.getElementById('processingSection');for(let i=1;i<main.children.length;i++)main.children[i].style.display='none';pdd.style.display=which==='pdd'?'block':'none';pp.style.display=which==='processing'?'block':'none';if(which==='aging')for(let i=2;i<main.children.length;i++)main.children[i].style.display='';if(which==='processing'){document.getElementById('processingTat').value='';renderProcessing()}if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';renderProcessing()}}
 
-  pdd.style.display=which==='pdd'?'block':'none';
-  pp.style.display=(which==='processing'||which==='tat')?'block':'none';
-  agingNodes.forEach(el=>el.style.display=which==='aging'?'':'none');
-
-  [...tabBar.querySelectorAll('button')].forEach(b=>{
-    const label=(b.textContent||'').toLowerCase();
-    const active=which==='aging' ? label.includes('aging dashboard') :
-                 which==='pdd' ? label.includes('pdd dashboard') :
-                 which==='tat' ? label.includes('tat breach') :
-                 label.includes('processing pending');
-    b.style.background=active?'#174ea6':'#fff';
-    b.style.color=active?'#fff':(label.includes('tat')?'#b42318':'#174ea6');
-    b.style.borderColor=active?'#174ea6':(label.includes('tat')?'#fecaca':'#cbd5e1');
-  });
-
-  if(which==='processing'){
-    document.getElementById('processingTat').value='';
-    fillProcessing();
-    renderProcessing();
-  }
-  if(which==='tat'){
-    document.getElementById('processingTat').value='TAT Breached';
-    fillProcessing();
-    renderProcessing();
-  }
-  if(which==='pdd'){
-    fillPDD();
-    renderPDD();
-  }
-  if(which==='aging'){
-    populateFilters();
-    render();
-  }
-}
+// Automatically load the centrally shared datasets for every visitor.
+loadLatestPDD();
+loadLatestProcessing();
 
 // Automatically load the centrally shared dataset for every visitor.
 // This runs after all dashboard functions are defined, so the same latest
 // uploaded file is shown on every device/browser.
-loadClusterMatrix(true).then(async()=>{await loadLatestShared();await loadLatestPDD();await loadLatestProcessing();}).catch(async()=>{await loadLatestShared();});
-setInterval(syncClusterMapping,30000);
+Promise.all([loadClusterMatrix(),loadLatestShared()]).catch(()=>loadLatestShared());
 </script>
 
 </body>
