@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kerala Aging Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f3f6fa;--card:#fff;--text:#172033;--muted:#667085;--line:#e4e9f0;--brand:#174ea6;--brand2:#123d83;--danger:#dc2626;--warn:#d97706;--ok:#059669;--shadow:0 2px 10px rgba(16,24,40,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);background-image:linear-gradient(135deg,rgba(23,78,166,.025),rgba(5,150,105,.025))}
+.header{background:linear-gradient(135deg,#0f3b78 0%,#174ea6 55%,#176b87 100%);border-bottom:0;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:0 5px 18px rgba(16,24,40,.14)}
+.title{font-size:25px;font-weight:850;letter-spacing:-.5px;color:#fff}.sub{font-size:12px;color:#dbeafe;margin-top:4px}.title:before{content:'▣';display:inline-block;margin-right:9px;color:var(--brand);font-size:19px}
+.actions{display:flex;gap:8px;align-items:center}.btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;padding:9px 13px;border-radius:8px;cursor:pointer;font-weight:650;backdrop-filter:blur(4px)}.btn.primary{background:#fff;color:#174ea6;border-color:#fff}.btn:hover{background:#f2f4f7}.btn.primary:hover{background:var(--brand2)}
+.wrap{max-width:1580px;margin:auto;padding:24px 28px}.upload,.filters,.card,.panel{box-shadow:var(--shadow)}
+.upload{background:#fff;border:1px solid #dbe3ee;border-left:4px solid var(--brand);border-radius:10px;padding:17px 18px;display:flex;align-items:center;gap:15px;margin-bottom:16px}.upload input{display:none}.upload-label{background:#eff6ff;color:#1d4ed8;padding:10px 14px;border-radius:7px;font-weight:700;cursor:pointer}.status{font-size:13px;color:var(--muted)}.pdd-download{background:#fff;border:1px solid #dbe3ee;border-left:4px solid #059669;border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:16px}.pdd-download-title{font-size:14px;font-weight:800;color:#243b63}.pdd-download-sub{font-size:12px;color:var(--muted);margin-top:3px}.pdd-download-actions{display:flex;gap:10px;flex-wrap:wrap}.pdd-btn{border:1px solid #174ea6;background:#174ea6;color:#fff;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:750}.pdd-btn.excel{background:#059669;border-color:#059669}.pdd-btn:hover{filter:brightness(.94)}
+.filters{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}.filter-grid{gap:12px}.filter-grid{display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px}.filter label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px}.filter select,.filter input{width:100%;height:38px;border:1px solid #d0d5dd;border-radius:6px;padding:0 9px;background:#fff}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}.card{background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);border:1px solid var(--line);border-radius:11px;padding:16px;position:relative;overflow:hidden}.card:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);opacity:.85}.card .label{font-size:12px;color:var(--muted)}.card .value{font-size:25px;font-weight:800;margin-top:6px}.card .small{font-size:11px;color:var(--muted);margin-top:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.panel{background:#fff;border:1px solid var(--line);border-radius:11px;padding:17px}.panel h3{font-size:15px;font-weight:800;color:#243b63;margin:0 0 13px}.table-wrap{box-shadow:inset 0 1px 0 rgba(16,24,40,.02)}.chartbox{height:300px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;max-height:560px}table{border-collapse:collapse;width:100%;font-size:12px}th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;white-space:nowrap;z-index:2}td{padding:8px;border-bottom:1px solid #eef0f3;white-space:nowrap}tr:hover td{background:#f8fafc}
+.age{font-weight:700}.a0{color:var(--ok)}.a1{color:#65a30d}.a2{color:var(--warn)}.a3{color:#ea580c}.a4{color:var(--danger)}
+.empty{padding:45px;text-align:center;color:var(--muted)}
+.note{font-size:11px;color:var(--muted);margin-top:8px}
+.pp-priority-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:9999;align-items:center;justify-content:center;padding:20px}
+.pp-priority-modal{width:min(680px,96vw);background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;border-top:6px solid #dc2626}
+.pp-priority-head{padding:18px 22px;background:#fff7f7;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pp-priority-title{font-size:20px;font-weight:850;color:#b42318}
+.pp-priority-count{font-size:34px;font-weight:900;color:#dc2626}
+.pp-priority-body{padding:20px 22px}
+.pp-priority-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}
+.pp-priority-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px}
+.pp-priority-box b{display:block;font-size:20px;color:#172033}.pp-priority-box span{font-size:11px;color:#667085}
+.pp-priority-timer{font-size:12px;color:#667085;text-align:center;margin-top:12px}
+.pp-priority-bar{height:5px;background:#fee2e2}.pp-priority-progress{height:100%;background:#dc2626;width:100%;transition:width 1s linear}
+.pp-priority-close{width:100%;border:0;background:#b42318;color:#fff;padding:12px;border-radius:8px;font-weight:800;cursor:pointer}
+.pp-age-breach{font-weight:900;color:#dc2626;background:#fef2f2;padding:3px 7px;border-radius:5px}
+.pp-age-ok{font-weight:750;color:#059669}
+@media(max-width:650px){.pp-priority-grid{grid-template-columns:1fr}.pp-priority-head{align-items:flex-start}}
+@media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}.filter-grid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}} 
+</style>
+</head>
+<body>
+<div id="ppPriorityOverlay" class="pp-priority-overlay" role="alertdialog" aria-modal="true" aria-labelledby="ppPriorityTitle">
+  <div class="pp-priority-modal">
+    <div class="pp-priority-head">
+      <div><div id="ppPriorityTitle" class="pp-priority-title">⚠ PRIORITY — TAT BREACH</div><div style="font-size:12px;color:#667085;margin-top:4px">Processing Pending requires immediate action</div></div>
+      <div id="ppPriorityCount" class="pp-priority-count">0</div>
+    </div>
+    <div class="pp-priority-body">
+      <div id="ppPriorityMessage" style="font-size:14px;font-weight:700;color:#243b63"></div>
+      <div class="pp-priority-grid">
+        <div class="pp-priority-box"><b id="ppPopupRto">0</b><span>RTO</span></div>
+        <div class="pp-priority-box"><b id="ppPopupMisroute">0</b><span>Misroute</span></div>
+        <div class="pp-priority-box"><b id="ppPopupHubs">0</b><span>Affected Hubs</span></div>
+      </div>
+      <button class="pp-priority-close" onclick="closeProcessingPriority()">Close &amp; Continue</button>
+      <div class="pp-priority-timer">This priority alert will close automatically in <b id="ppPrioritySeconds">8</b> seconds.</div>
+    </div>
+    <div class="pp-priority-bar"><div id="ppPriorityProgress" class="pp-priority-progress"></div></div>
+  </div>
+</div>
+<header class="header">
+  <div><div class="title">Kerala Aging Dashboard</div><div class="sub">Location • Ship Pincode • Aging analysis • Geo Mapper tracking | Upload raw Excel/CSV data</div></div>
+  <div class="actions">
+    <button class="btn" onclick="downloadCSV()">Download CSV</button>
+    <button class="btn" onclick="downloadExcel()">Download Excel</button>
+    <button class="btn primary" onclick="document.getElementById('file').click()">Upload Raw File</button>
+    <button class="btn" onclick="document.getElementById('matrixFile').click()">Update Cluster Matrix</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"><button class="btn" style="background:#174ea6;color:#fff;border-color:#174ea6" onclick="showDashboard('aging')">AGING DASHBOARD</button><button class="btn" style="color:#174ea6;border-color:#cbd5e1" onclick="showDashboard('pdd')">PDD DASHBOARD</button><button class="btn" style="color:#174ea6;border-color:#cbd5e1" onclick="showDashboard('processing')">PROCESSING PENDING</button><button class="btn" style="color:#b42318;border-color:#fecaca" onclick="showDashboard('tat')">TAT BREACH</button></div>
+
+<section id="processingSection" style="display:none">
+  <div class="upload">
+    <input id="processingFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadProcessingFile(event)">
+    <label class="upload-label" for="processingFile">Choose Processing Pending File</label>
+    <div><b id="processingFileName">No Processing Pending file uploaded</b><div class="status" id="processingStatus">Status RTO = RTO • Status Shipped = Misroute • Aging = Today − Current Process Date. COK/HUB and KANNUR/HUB are excluded.</div></div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="pdd-btn" onclick="downloadProcessingCSV()">Download AWB CSV</button>
+    <button class="pdd-btn excel" onclick="downloadProcessingExcel()">Download AWB Excel</button>
+  </div>
+  <section class="filters"><div class="filter-grid">
+    <div class="filter"><label>STATUS TYPE</label><select id="processingStatusFilter" onchange="renderProcessing()"><option value="">All</option><option>RTO</option><option>Misroute</option></select></div>
+    <div class="filter"><label>CURRENT HUB</label><select id="processingHub" onchange="renderProcessing()"><option value="">All</option></select></div>
+    <div class="filter"><label>CLUSTER</label><select id="processingCluster" onchange="renderProcessing()"><option value="">All</option></select></div>
+    <div class="filter"><label>AGING</label><select id="processingAging" onchange="renderProcessing()"><option value="">All</option></select></div>
+    <div class="filter"><label>TAT STATUS</label><select id="processingTat" onchange="renderProcessing()"><option value="">All</option><option>TAT Breached</option><option>Within TAT</option></select></div>
+    <div class="filter"><label>SEARCH</label><input id="processingSearch" placeholder="AWB / hub / pincode..." oninput="renderProcessing()"></div>
+  </div><div class="note">Processing Pending uses the Current Process Date and recalculates aging automatically each day. TAT breach = Aging &gt; 2 days.</div></section>
+  <section class="cards">
+    <div class="card"><div class="label">TOTAL PROCESSING PENDING</div><div class="value" id="ppTotal">0</div><div class="small">After excluded hubs</div></div>
+    <div class="card"><div class="label">RTO</div><div class="value" id="ppRto">0</div><div class="small">Status = RTO</div></div>
+    <div class="card"><div class="label">MISROUTE</div><div class="value" id="ppMisroute">0</div><div class="small">Status = Shipped</div></div>
+    <div class="card"><div class="label">TAT BREACHED</div><div class="value" id="ppTat">0</div><div class="small">Aging &gt; 2 days</div></div>
+    <div class="card"><div class="label">AVG AGING</div><div class="value" id="ppAvg">0.0</div><div class="small">Days</div></div>
+    <div class="card"><div class="label">HUBS</div><div class="value" id="ppHubs">0</div><div class="small">Active processing hubs</div></div>
+  </section>
+  <section class="grid2">
+    <div class="panel"><h3>Processing Pending by Hub</h3><div class="table-wrap"><table id="ppHubTable"></table></div></div>
+    <div class="panel"><h3>RTO vs Misroute</h3><div class="chartbox"><canvas id="ppStatusChart"></canvas></div></div>
+  </section>
+  <section class="panel"><h3>TAT BREACH — AWB DATA <span id="ppTatCount" class="sub"></span></h3><div class="table-wrap"><table id="ppTatTable"></table><div id="ppTatEmpty" class="empty">No TAT-breached shipments.</div></div></section>
+  <section class="panel"><h3>Filtered Processing Pending Data <span id="ppRowCount" class="sub"></span></h3><div class="table-wrap"><table id="ppRawTable"></table><div id="ppEmpty" class="empty">Upload a Processing Pending file to start.</div></div></section>
+</section>
+
+<section id="pddSection" style="display:none">
+  <div class="upload">
+    <input id="pddFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadPDDFile(event)">
+    <label class="upload-label" for="pddFile">Choose PDD Excel / CSV</label>
+    <div><b id="pddFileName">No PDD file uploaded</b><div class="status" id="pddStatus">Upload the separate PDD raw file. Location will use the same Cluster Matrix.</div></div>
+  </div>
+  <div class="pdd-download">
+    <div><div class="pdd-download-title">PENDING PDD DOWNLOAD</div><div class="pdd-download-sub">Downloads only PDD shipments that are still pending and have not yet been attempted, based on the PDD logic.</div></div>
+    <div class="pdd-download-actions">
+      <button class="pdd-btn" onclick="downloadPDDCSV()">Download PDD CSV</button>
+      <button class="pdd-btn excel" onclick="downloadPDDExcel()">Download PDD Excel</button>
+    </div>
+  </div>
+  <section class="filters"><div class="filter-grid">
+    <div class="filter"><label>STATE</label><select id="pddState" onchange="renderPDD()"><option value="">All</option></select></div>
+    <div class="filter"><label>LOCATION / HUB</label><select id="pddLocation" onchange="renderPDD()"><option value="">All</option></select></div>
+    <div class="filter"><label>SHIP PINCODE</label><select id="pddPincode" onchange="renderPDD()"><option value="">All</option></select></div>
+    <div class="filter"><label>CLUSTER</label><select id="pddCluster" onchange="renderPDD()"><option value="">All</option></select></div>
+    <div class="filter"><label>PDD STATUS</label><select id="pddStatusFilter" onchange="renderPDD()"><option value="">All</option></select></div>
+    <div class="filter"><label>SEARCH</label><input id="pddSearch" placeholder="AWB / customer / pincode..." oninput="renderPDD()"></div>
+  </div><div class="note">PDD filters and analysis are separate from the Aging dashboard. Cluster mapping is shared.</div></section>
+  <section class="cards">
+    <div class="card"><div class="label">TOTAL PDD</div><div class="value" id="pTotal">0</div><div class="small">Pending + Attempt Count = 0</div></div>
+    <div class="card"><div class="label">ATTEMPTED PDD</div><div class="value" id="pAttempt">0</div><div class="small">OFD / valid same-day attempt</div></div>
+    <div class="card"><div class="label">PDD ATTEMPT %</div><div class="value" id="pAttemptPct">0%</div><div class="small">Attempted / Total PDD</div></div>
+    <div class="card"><div class="label">PDD FAILURE</div><div class="value" id="pFail">0</div><div class="small">Total PDD - Attempted</div></div>
+    <div class="card"><div class="label">FAILURE %</div><div class="value" id="pFailPct">0%</div><div class="small">Failure / Total PDD</div></div>
+    <div class="card"><div class="label">LOCATIONS</div><div class="value" id="pLoc">0</div><div class="small">Unique locations</div></div>
+    <div class="card"><div class="label">CLUSTERS</div><div class="value" id="pCluster">0</div><div class="small">Mapped clusters</div></div>
+  </section>
+  <section class="grid2">
+    <div class="panel"><h3>PDD Failure by Cluster</h3><div class="table-wrap"><table id="pClusterTable"></table></div></div>
+    <div class="panel"><h3>PDD Failure by Location</h3><div class="table-wrap"><table id="pLocTable"></table></div></div>
+  </section>
+  <section class="panel"><h3>Filtered PDD Raw Data <span id="pRowCount" class="sub"></span></h3><div class="table-wrap"><table id="pRawTable"></table><div id="pEmpty" class="empty">Upload PDD data to start.</div></div></section>
+</section>
+  <div class="upload">
+    <input id="file" type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event)">
+    <input id="matrixFile" type="file" accept=".xlsx,.xls,.csv" onchange="loadMatrixFile(event)" style="display:none">
+    <label class="upload-label" for="file">Choose Excel / CSV</label>
+    <div><b id="fileName">No file uploaded</b><div class="status" id="status">Upload your raw file. The dashboard automatically detects common Location, Pincode and Aging fields.</div></div>
+  </div>
+
+  <section class="filters">
+    <div class="filter-grid">
+      <div class="filter"><label>STATE</label><select id="state" onchange="render()"><option value="">All</option></select></div>
+      <div class="filter"><label>LOCATION / HUB</label><select id="location" onchange="render()"><option value="">All</option></select></div>
+      <div class="filter"><label>SHIP PINCODE</label><select id="pincode" onchange="render()"><option value="">All</option></select></div>
+      <div class="filter"><label>CLUSTER</label><select id="cluster" onchange="render()"><option value="">All</option></select></div>
+      <div class="filter"><label>AGING BUCKET</label><select id="aging" onchange="render()"><option value="">All</option><option>0-2 Days</option><option>3-5 Days</option><option>6-7 Days</option><option>8-15 Days</option><option>16-30 Days</option><option>31+ Days</option></select></div>
+      <div class="filter"><label>SEARCH</label><input id="search" placeholder="AWB / customer / pincode..." oninput="render()"></div>
+    </div>
+    <div class="note">Filters apply to the dashboard, summary tables and downloads.</div>
+  </section>
+
+  <section class="cards">
+    <div class="card"><div class="label">TOTAL RECORDS</div><div class="value" id="cTotal">0</div><div class="small">Filtered rows</div></div>
+    <div class="card"><div class="label">TOTAL AGING</div><div class="value" id="cAging">0</div><div class="small">Shipment / row count</div></div>
+    <div class="card"><div class="label">LOCATIONS</div><div class="value" id="cLoc">0</div><div class="small">Unique locations</div></div>
+    <div class="card"><div class="label">CLUSTERS</div><div class="value" id="cCluster">0</div><div class="small">Mapped clusters</div></div>
+    <div class="card"><div class="label">PINCODES</div><div class="value" id="cPin">0</div><div class="small">Unique pincodes</div></div>
+    <div class="card"><div class="label">31+ DAYS</div><div class="value" id="c31">0</div><div class="small">Critical aging</div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel"><h3>Location-wise Aging</h3><div class="chartbox"><canvas id="locChart"></canvas></div></div>
+    <div class="panel"><h3>Aging Bucket Distribution</h3><div class="chartbox"><canvas id="ageChart"></canvas></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel"><h3>Cluster-wise Aging</h3><div class="table-wrap"><table id="clusterTable"></table></div></div>
+    <div class="panel"><h3>Ship Pincode-wise Aging — Location & Pincode (with Location)</h3><div class="table-wrap"><table id="pinTable"></table></div></div>
+    <div class="panel"><h3>Location × Aging</h3><div class="table-wrap"><table id="locAgeTable"></table></div></div>
+  </section>
+
+  <section class="panel">
+    <h3>Filtered Raw Data <span id="rowCount" class="sub"></span></h3>
+    <div class="table-wrap"><table id="rawTable"></table><div id="empty" class="empty">Upload a file to start.</div></div>
+  </section>
+</main>
+
+<script>
+let rows=[], headers=[], map={}, locChart, ageChart, clusterMatrix={};
+
+const aliases={
+ state:['state','region','st','state name'],
+ location:['location','hub','hubname','hub name','svc','rsc','location name','city'],
+ pincode:['shippincode','ship pincode','ship_pin_code','ship pin code','pincode','pin code','pin','destination pincode','destination_pincode','postcode'],
+ aging:['aging','ageing','age','aging days','ageing days','aging_day','aging_days','days','pending days'],
+ awb:['awb','awb no','awb number','shipment','shipment id','waybill']
+};
+
+function norm(s){return String(s??'').trim().toLowerCase().replace(/[_\-]+/g,' ').replace(/\s+/g,' ')}
+function detect(headers){
+  const out={};
+  for(const k of Object.keys(aliases)){
+    let h=headers.find(x=>aliases[k].includes(norm(x)));
+    if(!h) h=headers.find(x=>aliases[k].some(a=>norm(x).includes(a)));
+    out[k]=h||null;
+  }
+  return out;
+}
+function ageNum(v){
+  if(typeof v==='number') return v;
+  const m=String(v??'').match(/-?\d+(?:\.\d+)?/); return m?Number(m[0]):0;
+}
+function bucket(v){
+  const n=ageNum(v);
+  if(n<=2)return '0-2 Days'; if(n<=5)return '3-5 Days'; if(n<=7)return '6-7 Days';
+  if(n<=15)return '8-15 Days'; if(n<=30)return '16-30 Days'; return '31+ Days';
+}
+function val(r,k){return map[k]?r[map[k]]:''}
+function rowCluster(r){const key=String(val(r,'location')??'').trim().toUpperCase();return clusterMatrix[key]||'Unmapped';}
+function unique(arr){return [...new Set(arr.filter(x=>String(x).trim()!==''))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}))}
+function fillSelect(id, vals, keep=true){
+  const el=document.getElementById(id), old=el.value;
+  el.innerHTML='<option value="">All</option>'+unique(vals).map(v=>`<option value="${esc(String(v))}">${esc(String(v))}</option>`).join('');
+  if(keep && unique(vals).map(String).includes(old))el.value=old;
+}
+function esc(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+async function loadMatrixFile(e){
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'}), ws=wb.Sheets[wb.SheetNames[0]];
+      const mrows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      const hs=mrows.length?Object.keys(mrows[0]):[];
+      const hc=hs.find(h=>['hub name','hub','location','location name'].includes(norm(h)))||hs.find(h=>norm(h).includes('hub'));
+      const cc=hs.find(h=>['cluster name','cluster','cluster name '].includes(norm(h)))||hs.find(h=>norm(h).includes('cluster'));
+      if(!hc||!cc) return alert('Matrix must contain HUB NAME / Location and CLUSTER NAME columns.');
+      const m={}; mrows.forEach(r=>{const hub=String(r[hc]??'').trim().toUpperCase(),cl=String(r[cc]??'').trim();if(hub&&cl)m[hub]=cl;});
+      const r=await fetch('/api/cluster-matrix/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mapping:m})});
+      const x=await r.json(); if(!r.ok||!x.ok) throw new Error(x.error||'Matrix update failed');
+      clusterMatrix=m; populateFilters(); render();
+      document.getElementById('status').innerHTML=`Cluster matrix updated • <b>${x.locations.toLocaleString()}</b> locations mapped. <b>Shared for all users.</b>`;
+    }catch(err){alert('Could not update cluster matrix: '+err.message)}
+  };
+  reader.readAsArrayBuffer(f);
+}
+function loadFile(e){
+  const f=e.target.files[0]; if(!f)return;
+  document.getElementById('fileName').textContent=f.name;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      headers=rows.length?Object.keys(rows[0]):[];
+      map=detect(headers);
+      const sourceRowCount=rows.length;
+      if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+      document.getElementById('status').innerHTML=`Loaded <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. Syncing to team…`;
+      populateFilters(); render();
+      const fd=new FormData(); fd.append('file',f);
+      fetch('/api/dashboard/upload',{method:'POST',body:fd}).then(r=>r.json()).then(x=>{
+        if(!x.ok) throw new Error(x.error||'Upload failed');
+        document.getElementById('status').innerHTML=`Loaded <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. <b>Synced for all users.</b>`;
+      }).catch(err=>document.getElementById('status').innerHTML+=` <span style="color:#b42318">Sync failed: ${esc(err.message)}</span>`);
+    }catch(err){alert('Could not read the file: '+err.message)}
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+async function loadClusterMatrix(){
+  try{
+    const r=await fetch('/api/cluster-matrix/latest',{cache:'no-store'});
+    if(r.ok){
+      const data=await r.json();
+      if(data && typeof data==='object' && !Array.isArray(data)) clusterMatrix=data;
+    }
+  }catch(e){ /* keep the last in-memory matrix on transient failures */ }
+  // The matrix is loaded asynchronously. Re-apply it to every already-loaded
+  // dataset so visitors never see stale "Unmapped" values after refresh.
+  if(rows.length){ populateFilters(); render(); }
+  if(pddRows.length){ fillPDD(); renderPDD(); }
+  if(processingRows.length){ fillProcessing(); renderProcessing(); }
+}
+async function loadLatestShared(){
+  try{
+    const r=await fetch('/api/dashboard/latest',{cache:'no-store'});
+    if(!r.ok) return;
+    const blob=await r.blob();
+    const name=r.headers.get('X-Dashboard-Filename')||'Latest shared data.xlsx';
+    document.getElementById('fileName').textContent=name;
+    document.getElementById('status').textContent='Loading latest shared data…';
+    const wb=XLSX.read(await blob.arrayBuffer(),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    headers=rows.length?Object.keys(rows[0]):[];
+    map=detect(headers);
+    const sourceRowCount=rows.length;
+    if(map.state) rows=rows.filter(r=>norm(r[map.state])==='kerala');
+    populateFilters(); render();
+    document.getElementById('status').innerHTML=`Loaded shared data • <b>${rows.length.toLocaleString()}</b> rows. Detected: Location=<b>${map.location||'not found'}</b>, Pincode=<b>${map.pincode||'not found'}</b>, Aging=<b>${map.aging||'not found'}</b>. <b>Synced for all users.</b>`;
+  }catch(err){
+    document.getElementById('status').textContent='No shared dataset available. Upload the latest raw file to sync it for the team.';
+  }
+}
+function populateFilters(){
+  fillSelect('state',rows.map(r=>val(r,'state')),false);
+  fillSelect('location',rows.map(r=>val(r,'location')),false);
+  fillSelect('pincode',rows.map(r=>val(r,'pincode')),false);
+  fillSelect('cluster',rows.map(r=>rowCluster(r)),false);
+}
+function filtered(){
+  const s=document.getElementById('state').value,l=document.getElementById('location').value,p=document.getElementById('pincode').value,c=document.getElementById('cluster').value,a=document.getElementById('aging').value,q=norm(document.getElementById('search').value);
+  return rows.filter(r=>{
+    if(s&&String(val(r,'state'))!==s)return false;if(l&&String(val(r,'location'))!==l)return false;if(p&&String(val(r,'pincode'))!==p)return false;if(c&&rowCluster(r)!==c)return false;
+    if(a&&bucket(val(r,'aging'))!==a)return false;
+    if(q&&!headers.some(h=>norm(r[h]).includes(q)))return false; return true;
+  });
+}
+function render(){
+  const data=filtered();
+  document.getElementById('cTotal').textContent=data.length.toLocaleString();
+  document.getElementById('cAging').textContent=data.reduce((s,r)=>s+1,0).toLocaleString();
+  document.getElementById('cLoc').textContent=unique(data.map(r=>val(r,'location'))).length;
+  document.getElementById('cCluster').textContent=unique(data.map(r=>rowCluster(r))).length;
+  document.getElementById('cPin').textContent=unique(data.map(r=>val(r,'pincode'))).length;
+  document.getElementById('c31').textContent=data.filter(r=>bucket(val(r,'aging'))==='31+ Days').length.toLocaleString();
+  document.getElementById('rowCount').textContent=`(${data.length.toLocaleString()} rows)`;
+  makeCharts(data); makePinTable(data); makeClusterTable(data); makeLocAge(data); makeRaw(data);
+}
+function counts(data,key){
+  const o={}; data.forEach(r=>{const k=String(val(r,key)||'Unknown');o[k]=(o[k]||0)+1});return o;
+}
+function makeCharts(data){
+  const lc=counts(data,'location');const top=Object.entries(lc).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  if(locChart)locChart.destroy();locChart=new Chart(document.getElementById('locChart'),{type:'bar',data:{labels:top.map(x=>x[0]),datasets:[{label:'Aging',data:top.map(x=>x[1])}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}}}});
+  const buckets=['0-2 Days','3-5 Days','6-7 Days','8-15 Days','16-30 Days','31+ Days'];const ac=buckets.map(b=>data.filter(r=>bucket(val(r,'aging'))===b).length);
+  if(ageChart)ageChart.destroy();ageChart=new Chart(document.getElementById('ageChart'),{type:'bar',data:{labels:buckets,datasets:[{label:'Rows',data:ac}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+}
+function makeClusterTable(data){
+  const o={};data.forEach(r=>{const c=rowCluster(r);const a=bucket(val(r,'aging'));o[c]??={};o[c][a]=(o[c][a]||0)+1});
+  const clusters=Object.entries(o).sort((a,b)=>Object.values(b[1]).reduce((x,y)=>x+y,0)-Object.values(a[1]).reduce((x,y)=>x+y,0));
+  let h='<thead><tr><th>Cluster</th><th>Total</th><th>0-2</th><th>3-5</th><th>6-7</th><th>8-15</th><th>16-30</th><th>31+</th></tr></thead><tbody>';
+  clusters.forEach(([c,v])=>h+=`<tr><td><b>${esc(c)}</b></td><td>${Object.values(v).reduce((x,y)=>x+y,0)}</td>${['0-2 Days','3-5 Days','6-7 Days','8-15 Days','16-30 Days','31+ Days'].map(b=>`<td>${v[b]||0}</td>`).join('')}</tr>`);
+  document.getElementById('clusterTable').innerHTML=h+'</tbody>';
+}
+function makePinTable(data){
+  const o={};data.forEach(r=>{const p=String(val(r,'pincode')||'Unknown');const a=bucket(val(r,'aging'));o[p]??={};o[p][a]=(o[p][a]||0)+1});
+  const pins=Object.entries(o).sort((a,b)=>Object.values(b[1]).reduce((x,y)=>x+y,0)-Object.values(a[1]).reduce((x,y)=>x+y,0));
+  let h='<thead><tr><th>Ship Pincode</th><th>Total</th><th>0-2</th><th>3-5</th><th>6-7</th><th>8-15</th><th>16-30</th><th>31+</th></tr></thead><tbody>';
+  pins.forEach(([p,v])=>h+=`<tr><td>${esc(p)}</td><td><b>${Object.values(v).reduce((x,y)=>x+y,0)}</b></td>${['0-2 Days','3-5 Days','6-7 Days','8-15 Days','16-30 Days','31+ Days'].map(b=>`<td>${v[b]||0}</td>`).join('')}</tr>`);
+  document.getElementById('pinTable').innerHTML=h+'</tbody>';
+}
+function makeLocAge(data){
+  const o={};data.forEach(r=>{const l=String(val(r,'location')||'Unknown');const a=bucket(val(r,'aging'));o[l]??={};o[l][a]=(o[l][a]||0)+1});
+  const locs=Object.entries(o).sort((a,b)=>Object.values(b[1]).reduce((x,y)=>x+y,0)-Object.values(a[1]).reduce((x,y)=>x+y,0));
+  let h='<thead><tr><th>Location</th><th>Total</th><th>0-2</th><th>3-5</th><th>6-7</th><th>8-15</th><th>16-30</th><th>31+</th></tr></thead><tbody>';
+  locs.forEach(([l,v])=>h+=`<tr><td><b>${esc(l)}</b></td><td>${Object.values(v).reduce((x,y)=>x+y,0)}</td>${['0-2 Days','3-5 Days','6-7 Days','8-15 Days','16-30 Days','31+ Days'].map(b=>`<td>${v[b]||0}</td>`).join('')}</tr>`);
+  document.getElementById('locAgeTable').innerHTML=h+'</tbody>';
+}
+function makeRaw(data){
+  const empty=document.getElementById('empty');empty.style.display=data.length?'none':'block';
+  if(!data.length){document.getElementById('rawTable').innerHTML='';return}
+  document.getElementById('rawTable').innerHTML='<thead><tr><th>Cluster</th>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>'+data.slice(0,5000).map(r=>'<tr><td><b>'+esc(rowCluster(r))+'</b></td>'+headers.map(h=>`<td>${esc(String(r[h]??''))}</td>`).join('')+'</tr>').join('')+'</tbody>';
+}
+function downloadCSV(){
+  const data=filtered();if(!data.length)return alert('No data to download.');
+  const lines=[['Cluster',...headers].map(csv).join(',')].concat(data.map(r=>[rowCluster(r),...headers.map(h=>r[h])].map(csv).join(',')));
+  save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'aging_filtered.csv');
+}
+function csv(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+function downloadExcel(){
+  const data=filtered();if(!data.length)return alert('No data to download.');
+  const enriched=data.map(r=>Object.assign({Cluster:rowCluster(r)},r)); const ws=XLSX.utils.json_to_sheet(enriched);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Filtered Data');
+  XLSX.writeFile(wb,'aging_filtered.xlsx');
+}
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+</script>
+
+<script>
+function geoMapperLink() {
+  return '<a href="https://geomapper.xbees.in/mapview#iss=https%3A%2F%2Fauth.xbees.in%2Frealms%2Fxpressbees" target="_blank" rel="noopener noreferrer">Track ↗</a>';
+}
+</script>
+
+
+<script>
+/* Vivek Dashboard - local shared-browser persistence layer.
+   Static hosting cannot provide a central database by itself. This layer
+   preserves the last uploaded dataset in this browser so a refresh does not
+   lose it. For multi-user central sharing, connect the same UI to a backend.
+*/
+(function () {
+  const KEY = "vivek_dashboard_last_upload_v1";
+  window.VIVEK_DASHBOARD_STORAGE_KEY = KEY;
+  window.saveVivekDataset = function(data) {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e) {}
+  };
+  window.loadVivekDataset = function() {
+    try {
+      const v = localStorage.getItem(KEY);
+      return v ? JSON.parse(v) : null;
+    } catch(e) { return null; }
+  };
+})();
+
+let processingRows=[],processingHeaders=[],processingMap={},ppStatusChart;
+const processingAliases={state:['state','region','st','state name'],status:['status'],currenthub:['currenthubname','current hub name','current hub','currenthub'],currentprocessdate:['currentprocessdate','current process date','current_process_date','process date'],currentprocess:['currentprocess','current process','process'],pincode:['shippincode','ship pincode','shippin code','pincode','pin code'],awb:['shippingid','awb','awb no','awb number','shipment','shipment id','waybill']};
+function processingDetect(hs){const o={};for(const k of Object.keys(processingAliases)){let h=hs.find(x=>processingAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>processingAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null}return o}
+function processingVal(r,k){return processingMap[k]?r[processingMap[k]]:''}
+function processingStatus(r){const s=norm(processingVal(r,'status'));if(s==='rto')return 'RTO';if(s==='shipped')return 'Misroute';return String(processingVal(r,'status')||'Other')}
+function processingDate(r){const v=processingVal(r,'currentprocessdate');if(!v)return null;const d=new Date(v);return isNaN(d)?null:d}
+function processingAge(r){const d=processingDate(r);if(!d)return 0;const now=new Date();const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());const pd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return Math.max(0,Math.floor((t-pd)/86400000))}
+function processingExcluded(r){return /^(cok\/hub|kannur\/hub)$/i.test(String(processingVal(r,'currenthub')).trim())}
+function processingEligible(){return processingRows.filter(r=>!processingExcluded(r))}
+function processingCluster(r){const k=String(processingVal(r,'currenthub')||'').trim().toUpperCase();return clusterMatrix[k]||'Unmapped'}
+function processingTatStatus(r){return processingAge(r)>2?'TAT Breached':'Within TAT'}
+let ppPriorityTimer=null,ppPriorityShown=false;
+function closeProcessingPriority(){
+  const o=document.getElementById('ppPriorityOverlay'); if(o)o.style.display='none';
+  if(ppPriorityTimer){clearInterval(ppPriorityTimer);ppPriorityTimer=null}
+}
+function showProcessingPriority(){
+  const all=processingEligible(), breaches=all.filter(r=>processingAge(r)>2);
+  if(!breaches.length)return;
+  const rto=breaches.filter(r=>processingStatus(r)==='RTO').length;
+  const mis=breaches.filter(r=>processingStatus(r)==='Misroute').length;
+  const hubs=unique(breaches.map(r=>processingVal(r,'currenthub'))).filter(Boolean).length;
+  document.getElementById('ppPriorityCount').textContent=breaches.length.toLocaleString();
+  document.getElementById('ppPopupRto').textContent=rto.toLocaleString();
+  document.getElementById('ppPopupMisroute').textContent=mis.toLocaleString();
+  document.getElementById('ppPopupHubs').textContent=hubs.toLocaleString();
+  document.getElementById('ppPriorityMessage').textContent=breaches.length.toLocaleString()+' shipment(s) have Aging > 2 days and are classified as TAT Breached. Please close these on priority.';
+  const o=document.getElementById('ppPriorityOverlay'); o.style.display='flex';
+  let seconds=8; document.getElementById('ppPrioritySeconds').textContent=seconds;
+  document.getElementById('ppPriorityProgress').style.width='100%';
+  if(ppPriorityTimer)clearInterval(ppPriorityTimer);
+  ppPriorityTimer=setInterval(()=>{seconds--;document.getElementById('ppPrioritySeconds').textContent=Math.max(seconds,0);document.getElementById('ppPriorityProgress').style.width=(Math.max(seconds,0)/8*100)+'%';if(seconds<=0)closeProcessingPriority()},1000);
+}
+function fillProcessing(){const d=processingEligible();fillSelect('processingHub',d.map(r=>processingVal(r,'currenthub')),false);fillSelect('processingCluster',d.map(r=>processingCluster(r)),false);fillSelect('processingAging',unique(d.map(r=>String(processingAge(r)))),false)}
+function filteredProcessing(){const s=document.getElementById('processingStatusFilter').value,h=document.getElementById('processingHub').value,c=document.getElementById('processingCluster').value,a=document.getElementById('processingAging').value,t=document.getElementById('processingTat').value,q=norm(document.getElementById('processingSearch').value);return processingEligible().filter(r=>{if(s&&processingStatus(r)!==s)return false;if(h&&String(processingVal(r,'currenthub'))!==h)return false;if(c&&processingCluster(r)!==c)return false;if(a&&String(processingAge(r))!==a)return false;if(t&&processingTatStatus(r)!==t)return false;if(q&&!processingHeaders.some(x=>norm(r[x]).includes(q)))return false;return true})}
+function renderProcessing(){const d=filteredProcessing(),tat=d.filter(r=>processingAge(r)>2),rto=d.filter(r=>processingStatus(r)==='RTO').length,mis=d.filter(r=>processingStatus(r)==='Misroute').length,avg=d.length?d.reduce((s,r)=>s+processingAge(r),0)/d.length:0;document.getElementById('ppTotal').textContent=d.length.toLocaleString();document.getElementById('ppRto').textContent=rto.toLocaleString();document.getElementById('ppMisroute').textContent=mis.toLocaleString();document.getElementById('ppTat').textContent=tat.length.toLocaleString();document.getElementById('ppAvg').textContent=avg.toFixed(1);document.getElementById('ppHubs').textContent=unique(d.map(r=>processingVal(r,'currenthub'))).length;document.getElementById('ppRowCount').textContent='('+d.length.toLocaleString()+' rows)';document.getElementById('ppTatCount').textContent='('+tat.length.toLocaleString()+' AWBs)';makeProcessingHubTable(d);makeProcessingTatTable(tat);makeProcessingRaw(d);if(ppStatusChart)ppStatusChart.destroy();ppStatusChart=new Chart(document.getElementById('ppStatusChart'),{type:'doughnut',data:{labels:['RTO','Misroute'],datasets:[{data:[rto,mis]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})}
+function makeProcessingHubTable(d){const o={};d.forEach(r=>{const h=String(processingVal(r,'currenthub')||'Unknown');o[h]??={total:0,rto:0,mis:0,tat:0};o[h].total++;if(processingStatus(r)==='RTO')o[h].rto++;if(processingStatus(r)==='Misroute')o[h].mis++;if(processingAge(r)>2)o[h].tat++});const arr=Object.entries(o).sort((a,b)=>b[1].total-a[1].total);document.getElementById('ppHubTable').innerHTML='<thead><tr><th>Current Hub</th><th>Total</th><th>RTO</th><th>Misroute</th><th>TAT Breach</th></tr></thead><tbody>'+arr.map(([h,v])=>'<tr><td><b>'+esc(h)+'</b></td><td>'+v.total+'</td><td>'+v.rto+'</td><td>'+v.mis+'</td><td>'+v.tat+'</td></tr>').join('')+'</tbody>'}
+function makeProcessingTatTable(d){document.getElementById('ppTatEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppTatTable').innerHTML='';return}const hs=['AWB','Status Type','Current Hub','Cluster','Current Process','Current Process Date','Aging','TAT Status','Ship Pincode'];document.getElementById('ppTatTable').innerHTML='<thead><tr>'+hs.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(String(processingVal(r,'awb')||''))+'</b></td><td>'+esc(processingStatus(r))+'</td><td>'+esc(String(processingVal(r,'currenthub')||''))+'</td><td>'+esc(processingCluster(r))+'</td><td>'+esc(String(processingVal(r,'currentprocess')||''))+'</td><td>'+esc(String(processingVal(r,'currentprocessdate')||''))+'</td><td><span class="pp-age-breach">'+processingAge(r)+' day(s)</span></td><td><b class="pp-age-breach">TAT Breached</b></td><td>'+esc(String(processingVal(r,'pincode')||''))+'</td></tr>').join('')+'</tbody>'}
+function makeProcessingRaw(d){document.getElementById('ppEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('ppRawTable').innerHTML='';return}document.getElementById('ppRawTable').innerHTML='<thead><tr><th>Cluster</th><th>Status Type</th><th>Auto Aging</th><th>TAT Status</th>'+processingHeaders.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(processingCluster(r))+'</b></td><td>'+esc(processingStatus(r))+'</td><td><span class="'+(processingAge(r)>2?'pp-age-breach':'pp-age-ok')+'">'+processingAge(r)+' day(s)</span></td><td><b class="'+(processingAge(r)>2?'pp-age-breach':'pp-age-ok')+'">'+processingTatStatus(r)+'</b></td>'+processingHeaders.map(h=>'<td>'+esc(String(r[h]??''))+'</td>').join('')+'</tr>').join('')+'</tbody>'}
+function processingDownloadRows(){const d=filteredProcessing();if(!d.length){alert('No Processing Pending data available.');return null}return d.map(r=>Object.assign({AWB:processingVal(r,'awb'),'Status Type':processingStatus(r),'Current Hub':processingVal(r,'currenthub'),Cluster:processingCluster(r),'Current Process':processingVal(r,'currentprocess'),'Current Process Date':processingVal(r,'currentprocessdate'),'Aging':processingAge(r),'TAT Status':processingTatStatus(r),'Ship Pincode':processingVal(r,'pincode')},r))}
+function downloadProcessingCSV(){const data=processingDownloadRows();if(!data)return;const hs=['AWB','Status Type','Current Hub','Cluster','Current Process','Current Process Date','Aging','TAT Status','Ship Pincode',...processingHeaders];const lines=[hs.map(csv).join(',')].concat(data.map(r=>hs.map(h=>r[h]).map(csv).join(',')));save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'processing_pending_awb.csv')}
+function downloadProcessingExcel(){const data=processingDownloadRows();if(!data)return;const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Processing Pending');XLSX.writeFile(wb,'processing_pending_awb.xlsx')}
+function loadProcessingFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('processingFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);const source=processingRows.length;fillProcessing();renderProcessing();setTimeout(showProcessingPriority,350);const fd=new FormData();fd.append('file',f);const rr=await fetch('/api/processing/upload',{method:'POST',body:fd}),x=await rr.json();if(!rr.ok||!x.ok)throw new Error(x.error||'Processing upload failed');document.getElementById('processingStatus').innerHTML='Loaded <b>'+processingEligible().length.toLocaleString()+'</b> active rows. Status: RTO / Misroute. Aging auto-calculated from Current Process Date. COK/HUB and KANNUR/HUB excluded. <b>Synced for all users.</b>'}catch(err){alert('Could not read/upload Processing Pending file: '+err.message)}};rd.readAsArrayBuffer(f)}
+async function loadLatestProcessing(){try{const r=await fetch('/api/processing/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-Processing-Filename')||'Latest Processing Pending data.xlsx';document.getElementById('processingFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];processingRows=XLSX.utils.sheet_to_json(ws,{defval:''});processingHeaders=processingRows.length?Object.keys(processingRows[0]):[];processingMap=processingDetect(processingHeaders);fillProcessing();renderProcessing();setTimeout(showProcessingPriority,350);document.getElementById('processingStatus').innerHTML='Loaded shared Processing Pending data • <b>'+processingEligible().length.toLocaleString()+'</b> active rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
+
+let pddRows=[],pddHeaders=[],pddMap={};
+const pddAliases={state:['state','region','st','state name'],location:['location','hub','hubname','hub name','svc','rsc','location name','city'],pincode:['shippincode','ship pincode','ship_pin_code','ship pin code','pincode','pin code','pin','destination pincode','destination_pincode','postcode'],status:['pdd status','status','pdd_status','pdd result','result','delivery status'],notificationstatus:['notificationstatus','notification status'],totalattemptcount:['totalattemptcount','total attempt count','attemptcount','attempt count'],current_process:['current_process','current process','process'],current_processtime:['current_processtime','current process time','process time'],awb:['awb','awb no','awb number','shipment','shipment id','waybill']};
+function pddDetect(hs){const o={};for(const k of Object.keys(pddAliases)){let h=hs.find(x=>pddAliases[k].includes(norm(x)));if(!h)h=hs.find(x=>pddAliases[k].some(a=>norm(x).includes(a)));o[k]=h||null;}return o}
+function pddVal(r,k){return pddMap[k]?r[pddMap[k]]:''}
+function pddIsRecord(r){return norm(pddVal(r,'notificationstatus'))==='pending'&&Number(pddVal(r,'totalattemptcount'))===0}
+function pddProcessDate(r){const v=pddVal(r,'current_processtime');if(!v)return '';const d=new Date(v);if(!isNaN(d))return d.toISOString().slice(0,10);const m=String(v).match(/(20\d{2})[-\/]?(\d{2})[-\/]?(\d{2})/);return m?m.slice(1).join('-'):String(v).slice(0,10)}
+function pddIsAttempt(r){if(!pddIsRecord(r))return false;const proc=norm(pddVal(r,'current_process'));if(/out for delivery/.test(proc))return true;const today=new Date().toISOString().slice(0,10);return pddProcessDate(r)===today&&!/bagout|baginscan|bagin/.test(proc)}
+function pddIsFailure(r){return pddIsRecord(r)&&!pddIsAttempt(r)}
+function pddMetricRows(d){return d.filter(pddIsRecord)}
+function fillPDD(){fillSelect('pddState',pddRows.map(r=>pddVal(r,'state')),false);fillSelect('pddLocation',pddRows.map(r=>pddVal(r,'location')),false);fillSelect('pddPincode',pddRows.map(r=>pddVal(r,'pincode')),false);fillSelect('pddCluster',pddRows.map(r=>rowPDDCluster(r)),false);fillSelect('pddStatusFilter',pddRows.map(r=>pddVal(r,'status')),false)}
+function rowPDDCluster(r){const k=String(pddVal(r,'location')??'').trim().toUpperCase();return clusterMatrix[k]||'Unmapped'}
+function filteredPDD(){const s=document.getElementById('pddState').value,l=document.getElementById('pddLocation').value,p=document.getElementById('pddPincode').value,c=document.getElementById('pddCluster').value,st=document.getElementById('pddStatusFilter').value,q=norm(document.getElementById('pddSearch').value);return pddRows.filter(r=>{if(s&&String(pddVal(r,'state'))!==s)return false;if(l&&String(pddVal(r,'location'))!==l)return false;if(p&&String(pddVal(r,'pincode'))!==p)return false;if(c&&rowPDDCluster(r)!==c)return false;if(st&&String(pddVal(r,'status'))!==st)return false;if(q&&!pddHeaders.some(h=>norm(r[h]).includes(q)))return false;return true})}
+function renderPDD(){const d=filteredPDD(),pdd=pddMetricRows(d),attempted=pdd.filter(pddIsAttempt).length,fail=pdd.length-attempted;document.getElementById('pTotal').textContent=pdd.length.toLocaleString();document.getElementById('pAttempt').textContent=attempted.toLocaleString();document.getElementById('pAttemptPct').textContent=(pdd.length?(attempted/pdd.length*100).toFixed(1):'0')+'%';document.getElementById('pFail').textContent=fail.toLocaleString();document.getElementById('pFailPct').textContent=(pdd.length?(fail/pdd.length*100).toFixed(1):'0')+'%';document.getElementById('pLoc').textContent=unique(pdd.map(r=>pddVal(r,'location'))).length;document.getElementById('pCluster').textContent=unique(pdd.map(r=>rowPDDCluster(r))).length;document.getElementById('pRowCount').textContent='('+pdd.length.toLocaleString()+' PDD rows)';makePDDTables(pdd);makePDDRaw(pdd)}
+function makePDDTables(d){const c={},l={};d.forEach(r=>{const cl=rowPDDCluster(r),loc=String(pddVal(r,'location')||'Unknown'),a=pddIsAttempt(r);c[cl]??={total:0,attempt:0,fail:0};l[loc]??={total:0,attempt:0,fail:0};c[cl].total++;l[loc].total++;if(a){c[cl].attempt++;l[loc].attempt++}else{c[cl].fail++;l[loc].fail++}});const rowsHtml=o=>Object.entries(o).sort((a,b)=>b[1].fail-a[1].fail).map(([k,v])=>'<tr><td><b>'+esc(k)+'</b></td><td>'+v.total+'</td><td>'+v.attempt+'</td><td>'+v.fail+'</td><td>'+((v.total?v.fail/v.total*100:0).toFixed(1))+'%</td></tr>').join('');document.getElementById('pClusterTable').innerHTML='<thead><tr><th>Cluster</th><th>Total PDD</th><th>Attempted</th><th>Failure</th><th>Failure %</th></tr></thead><tbody>'+rowsHtml(c)+'</tbody>';document.getElementById('pLocTable').innerHTML='<thead><tr><th>Location</th><th>Total PDD</th><th>Attempted</th><th>Failure</th><th>Failure %</th></tr></thead><tbody>'+rowsHtml(l)+'</tbody>'}
+function makePDDRaw(d){document.getElementById('pEmpty').style.display=d.length?'none':'block';if(!d.length){document.getElementById('pRawTable').innerHTML='';return}document.getElementById('pRawTable').innerHTML='<thead><tr><th>Cluster</th><th>PDD</th><th>PDD Attempt</th><th>PDD Failure</th>'+pddHeaders.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+d.slice(0,5000).map(r=>'<tr><td><b>'+esc(rowPDDCluster(r))+'</b></td><td>'+ (pddIsRecord(r)?'YES':'NO') +'</td><td>'+ (pddIsAttempt(r)?'YES':'NO') +'</td><td>'+ (pddIsFailure(r)?'YES':'NO') +'</td>'+pddHeaders.map(h=>'<td>'+esc(String(r[h]??''))+'</td>').join('')+'</tr>').join('')+'</tbody>'}
+function pddDownloadRows(){const d=filteredPDD().filter(r=>pddIsRecord(r)&&!pddIsAttempt(r));if(!d.length){alert('No pending unattempted PDD data available.');return null}return d.map(r=>Object.assign({Cluster:rowPDDCluster(r),PDD:'YES','PDD Attempt':'NO','PDD Failure':'YES'},r))}
+function downloadPDDCSV(){const data=pddDownloadRows();if(!data)return;const hs=['Cluster','PDD','PDD Attempt','PDD Failure',...pddHeaders];const lines=[hs.map(csv).join(',')].concat(data.map(r=>hs.map(h=>r[h]).map(csv).join(',')));save(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'pdd_pending_unattempted.csv')}
+function downloadPDDExcel(){const data=pddDownloadRows();if(!data)return;const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pending PDD');XLSX.writeFile(wb,'pdd_pending_unattempted.xlsx')}
+function loadPDDFile(e){const f=e.target.files[0];if(!f)return;document.getElementById('pddFileName').textContent=f.name;const rd=new FileReader();rd.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();const fd=new FormData();fd.append('file',f);const r=await fetch('/api/pdd/upload',{method:'POST',body:fd}),x=await r.json();if(!r.ok||!x.ok)throw new Error(x.error||'PDD upload failed');document.getElementById('pddStatus').innerHTML='Loaded <b>'+pddRows.length.toLocaleString()+'</b> PDD rows. Location=<b>'+(pddMap.location||'not found')+'</b>, Status=<b>'+(pddMap.status||'not found')+'</b>. <b>Synced separately for all users.</b>'}catch(err){alert('Could not read/upload PDD file: '+err.message)}};rd.readAsArrayBuffer(f)}
+async function loadLatestPDD(){try{const r=await fetch('/api/pdd/latest',{cache:'no-store'});if(!r.ok)return;const b=await r.blob(),n=r.headers.get('X-PDD-Filename')||'Latest PDD data.xlsx';document.getElementById('pddFileName').textContent=n;const wb=XLSX.read(await b.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];pddRows=XLSX.utils.sheet_to_json(ws,{defval:''});pddHeaders=pddRows.length?Object.keys(pddRows[0]):[];pddMap=pddDetect(pddHeaders);const pddSourceRowCount=pddRows.length;if(pddMap.state)pddRows=pddRows.filter(r=>norm(pddVal(r,'state'))==='kerala');fillPDD();renderPDD();document.getElementById('pddStatus').innerHTML='Loaded shared PDD data • <b>'+pddRows.length.toLocaleString()+'</b> rows. <b>Cluster Matrix applied.</b>'}catch(e){}}
+function showDashboard(which){const main=document.querySelector('main.wrap'),pdd=document.getElementById('pddSection'),pp=document.getElementById('processingSection');for(let i=1;i<main.children.length;i++)main.children[i].style.display='none';pdd.style.display=which==='pdd'?'block':'none';pp.style.display=which==='processing'?'block':'none';if(which==='aging')for(let i=2;i<main.children.length;i++)main.children[i].style.display='';if(which==='processing'){document.getElementById('processingTat').value='';renderProcessing()}if(which==='tat'){document.getElementById('processingTat').value='TAT Breached';renderProcessing()}}
+
+// Automatically load the centrally shared datasets for every visitor.
+loadLatestPDD();
+loadLatestProcessing();
+
+// Automatically load the centrally shared dataset for every visitor.
+// This runs after all dashboard functions are defined, so the same latest
+// uploaded file is shown on every device/browser.
+Promise.all([loadClusterMatrix(),loadLatestShared()]).catch(()=>loadLatestShared());
+</script>
+
+</body>
+</html>
