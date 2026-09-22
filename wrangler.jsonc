@@ -1,7 +1,8 @@
 {
   "name": "kerala-operations-dashboard",
-  "main": "worker.js",
+  "main": "./worker.js",
   "compatibility_date": "2026-09-22",
+  "no_bundle": true,
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
