@@ -34,8 +34,9 @@ export default {async fetch(request,env){
   try{
     if(p==="/health")return j({ok:true,service:"kerala-operations-dashboard",cloudflare:true});
     if(p==="/api/status")return j({ok:true,service:"kerala-operations-dashboard",storage:!!env.DATA});
-    if(p==="/api/cluster-matrix/latest"||p==="/api/cluster-matrix/mapping"){if(p.endsWith("/latest"))return mapping(env,"GET",request);return mapping(env,"GET",request)}
-    if(p==="/api/cluster-matrix/upload"||p==="/api/cluster-matrix/mapping")return mapping(env,"POST",request);
+    if(p==="/api/cluster-matrix/latest"&&request.method==="GET")return mapping(env,"GET",request);
+    if((p==="/api/cluster-matrix/upload"||p==="/api/cluster-matrix/mapping")&&request.method==="POST")return mapping(env,"POST",request);
+    if(p==="/api/cluster-matrix/mapping"&&request.method==="GET")return mapping(env,"GET",request);
     if(p==="/api/dashboard/upload"&&request.method==="POST")return saveFile(env,"dashboard",request);
     if(p==="/api/pdd/upload"&&request.method==="POST")return saveFile(env,"pdd-dashboard",request);
     if(p==="/api/processing/upload"&&request.method==="POST")return saveFile(env,"processing-pending",request);
